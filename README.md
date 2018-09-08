@@ -9,7 +9,7 @@ To allow for FLASH based Kickstart images to be mapped in the same address space
 
 ### Appearance
 Nice 3D model:
-![3D Model](Images/68000 Relocator FLASH Kickstart.png)
+![3D Model](/Images/68000RelocatorFLASHKickstart.png)
 
 ### How It Works
 Content to be added. In the meantime, refer to the Verilog for a rough idea.
