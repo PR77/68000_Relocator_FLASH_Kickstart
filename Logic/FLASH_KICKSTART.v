@@ -28,7 +28,7 @@
     input CPU_AS,
     output MB_AS,
        
-    input MB_DTACK,
+    output MB_DTACK,
     
     input E_CLK,    
         
@@ -168,6 +168,29 @@ assign FLASH_WR[1:0] = (programmingSession == 1'b1 && RW == 1'b1 && FLASH_RANGE)
 // in programming session, this means using the FLASH KS, then block /AS.
 
 assign MB_AS = (programmingSession == 1'b1 && KICKSTART_RANGE) ? CPU_AS : 1'b1;
+
+/// --- /DTACK Override Control
+
+// When accessing the FLASH KS, /AS is not asserted on the Amiga Motherboard, therefore
+// GARY will not decode and assert /DTACK. As a result, we need to locally create this
+// signal. Conventional timing is used. I.e., /DTACK asserted in rising edge of S4.
+
+reg INTERNAL_CYCLE_DTACK = 1'b1;
+
+// Everything is in the 7MHz clock domain so this shoudl keep things simple.
+
+always @(posedge MB_CLK or posedge CPU_AS) begin
+    
+    if (CPU_AS == 1'b1) begin
+        INTERNAL_CYCLE_DTACK <= 1'b1;
+    end else begin
+        
+        // Rising edge of S4.    
+        INTERNAL_CYCLE_DTACK <= 1'b0;
+    end
+end
+
+assign MB_DTACK = (INTERNAL_CYCLE_DTACK) ? 1'bZ : 1'b0;
 
 // --- Reset Duration Detection
 
