@@ -293,7 +293,7 @@ U 1 1 5B917D80
 P 7750 2000
 F 0 "U3" H 7850 3300 50  0000 C CNN
 F 1 "SST39SF040" H 7750 800 50  0000 C CNN
-F 2 "Sockets:PLCC32" H 7750 2300 50  0001 C CNN
+F 2 "SMD_Packages:PLCC-32" H 7750 2300 50  0001 C CNN
 F 3 "" H 7750 2300 50  0001 C CNN
 	1    7750 2000
 	1    0    0    -1  
@@ -304,7 +304,7 @@ U 1 1 5B917DAD
 P 10050 2000
 F 0 "U4" H 10150 3300 50  0000 C CNN
 F 1 "SST39SF040" H 10050 800 50  0000 C CNN
-F 2 "Sockets:PLCC32" H 10050 2300 50  0001 C CNN
+F 2 "SMD_Packages:PLCC-32" H 10050 2300 50  0001 C CNN
 F 3 "" H 10050 2300 50  0001 C CNN
 	1    10050 2000
 	1    0    0    -1  
@@ -1235,61 +1235,61 @@ Wire Bus Line
 	6450 5400 6450 600 
 Wire Bus Line
 	6450 600  11050 600 
-Text Label 7500 5100 0    60   ~ 0
+Text Label 10050 4850 0    60   ~ 0
 A23
-Text Label 7500 5000 0    60   ~ 0
+Text Label 10050 4950 0    60   ~ 0
 A22
-Text Label 7500 4800 0    60   ~ 0
+Text Label 10050 5150 0    60   ~ 0
 A20
-Text Label 7500 4700 0    60   ~ 0
+Text Label 10050 5250 0    60   ~ 0
 A19
-Text Label 7500 4600 0    60   ~ 0
+Text Label 7750 5250 2    60   ~ 0
 A18
-Text Label 7500 4500 0    60   ~ 0
+Text Label 7750 5150 2    60   ~ 0
 A17
-Text Label 7500 4400 0    60   ~ 0
+Text Label 7750 5050 2    60   ~ 0
 A16
-Text Label 7500 4900 0    60   ~ 0
+Text Label 10050 5050 0    60   ~ 0
 A21
-Text Label 7550 3700 0    60   ~ 0
+Text Label 7750 4350 2    60   ~ 0
 A1
-Text Label 7550 3800 0    60   ~ 0
+Text Label 7750 4450 2    60   ~ 0
 A2
-Text Label 7550 3900 0    60   ~ 0
+Text Label 7750 4950 2    60   ~ 0
 A3
-Text Label 7550 4000 0    60   ~ 0
+Text Label 7750 4850 2    60   ~ 0
 A4
-Text Label 7550 4100 0    60   ~ 0
+Text Label 7750 4750 2    60   ~ 0
 A5
-Text Label 7550 4200 0    60   ~ 0
+Text Label 7750 4650 2    60   ~ 0
 A6
-Text Label 7550 4300 0    60   ~ 0
+Text Label 7750 4550 2    60   ~ 0
 A7
-Text Label 10100 4400 0    60   ~ 0
+Text Label 10050 4750 0    60   ~ 0
 D15
-Text Label 10100 4300 0    60   ~ 0
+Text Label 10050 4650 0    60   ~ 0
 D14
-Text Label 10100 4200 0    60   ~ 0
+Text Label 10050 4550 0    60   ~ 0
 D13
-Text Label 10100 4100 0    60   ~ 0
+Text Label 10050 4450 0    60   ~ 0
 D12
-Text Label 10100 4500 0    60   ~ 0
+Text Label 10050 4350 0    60   ~ 0
 MB_AS
-Text Label 10100 4600 0    60   ~ 0
+Text Label 10050 3850 0    60   ~ 0
 CPU_AS
-Text Label 10100 4700 0    60   ~ 0
+Text Label 10050 4250 0    60   ~ 0
 UDS
-Text Label 10100 4800 0    60   ~ 0
+Text Label 10050 4050 0    60   ~ 0
 LDS
-Text Label 10100 4900 0    60   ~ 0
+Text Label 10050 3950 0    60   ~ 0
 R/W
-Text Label 10100 5000 0    60   ~ 0
+Text Label 10050 3650 0    60   ~ 0
 E
-Text Label 10100 5100 0    60   ~ 0
+Text Label 7750 3850 2    60   ~ 0
 CLK
-Text Label 7400 5200 0    60   ~ 0
+Text Label 10050 4150 0    60   ~ 0
 RESET
-Text Label 10100 5200 0    60   ~ 0
+Text Label 10050 3750 0    60   ~ 0
 DTACK
 Text Label 6750 2800 0    60   ~ 0
 ROM0_WR
@@ -1299,13 +1299,13 @@ Text Label 9050 2800 0    60   ~ 0
 ROM1_WR
 Text Label 9050 3100 0    60   ~ 0
 ROM1_RD
-Text Label 10100 3700 0    60   ~ 0
+Text Label 7750 3650 2    60   ~ 0
 ROM0_WR
-Text Label 10100 3800 0    60   ~ 0
+Text Label 7750 3750 2    60   ~ 0
 ROM0_RD
-Text Label 10100 3900 0    60   ~ 0
+Text Label 7750 3950 2    60   ~ 0
 ROM1_WR
-Text Label 10100 4000 0    60   ~ 0
+Text Label 7750 4050 2    60   ~ 0
 ROM1_RD
 $Comp
 L Conn_01x03_Male J1
@@ -1395,9 +1395,9 @@ F 3 "" H 6550 6000 50  0001 C CNN
 	1    6550 6000
 	1    0    0    -1  
 $EndComp
-Text Label 7250 5300 0    60   ~ 0
+Text Label 7750 4250 2    60   ~ 0
 PROGRAM
-Text Label 10100 5300 0    60   ~ 0
+Text Label 7750 4150 2    60   ~ 0
 1MEG
 $Comp
 L GND #PWR01
