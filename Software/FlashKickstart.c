@@ -1,8 +1,10 @@
+#include <clib/dos_protos.h>
+#include <clib/exec_protos.h>
+#include <clib/expansion_protos.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
-// TODO: Add missing headers once I figure out this stupic enum issue!
 
 /*****************************************************************************/
 /* Defines *******************************************************************/
@@ -10,6 +12,9 @@
 
 #define SECTOR_SIZE		        0xFFFF
 #define MAX_SECTORS             8
+
+#define TOGGLE_STATUS           0x8080
+#define EXCEEDED_TIME           0x2020
 
 #define FLASH_RESET_ADDR_1      (0x0000 << 1)
 #define FLASH_RESET_DATA_1      (0xF0F0)
@@ -63,7 +68,7 @@ tFlashCommandStatus resetFlashDevice(ULONG address);
 tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber);
 tFlashCommandStatus writeFlashByte(ULONG address, UWORD data);
 tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData);
-void main(int argc, char **argv);
+int main(int argc, char **argv);
 
 /*****************************************************************************/
 /* Code **********************************************************************/
@@ -79,7 +84,7 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
     UWORD currentWord, previousWord;
-    UWORD loopDelay, previousWord, toggleStatus;
+    UBYTE loopDelay;
     
     currentWord = *(UWORD *)address;
 
@@ -194,13 +199,13 @@ tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
 
     if (sectorNumber < MAX_SECTORS)
     {
-        if (flashOK == unlockFlashDevice())
+        if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
         {
             *(ULONG *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;    
             
-            if (flashOK == unlockFlashDevice())
+            if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
             {
-                *(ULONG *)(address + (sectorNumber << 16) = FLASH_SECTOR_DATA_1;
+                *(ULONG *)(address + (sectorNumber << 16)) = FLASH_SECTOR_DATA_1;
 
                 flashCommandStatus = flashOK;                
             }
@@ -226,8 +231,8 @@ tFlashCommandStatus writeFlashByte(ULONG address, UWORD data)
 
     flashCommandStatus = unlockFlashDevice(address);
     
-    *(ULONG *)(address + FLASH_PROGRAM_ADDR_1) = FLASH_PROGRAM_DATA_1;    
-    *(ULONG *)(address) = data;
+    *(UWORD *)(address + FLASH_PROGRAM_ADDR_1) = FLASH_PROGRAM_DATA_1;    
+    *(UWORD *)(address) = data;
     
     return (flashCommandStatus);
 }
@@ -245,7 +250,7 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
     
     do {
 
-        if (flashOK == writeFlashByte(pData[currentWord]))
+        if (flashOK == writeFlashByte((address + currentWord), pData[currentWord]))
         {
             if (flashOK == checkFlashStatus(address + currentWord))
             {
@@ -259,7 +264,7 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
         flashCommandStatus = flashProgramError;
         break;            
                 
-    } while (currentWord < size)
+    } while (currentWord < size);
     
     return (flashCommandStatus);
 }
@@ -267,11 +272,11 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
 /*****************************************************************************/
 /* Main **********************************************************************/
 /*****************************************************************************/
-void main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     struct Library *ExpansionBase = NULL;
     struct ConfigDev *myCD = NULL;
-    BPTR fileHandle = NULL;
+    BPTR fileHandle = 0L;
     UWORD flashManufactureID, flashDeviceID;
 
     /* Check if application has been started with correct parameters */
@@ -299,7 +304,7 @@ void main(int argc, char **argv)
     /*----------------------------------------------------*/
   
     /* Check if correct Zorro II hardware is present. FLASH Kickstart */
-    myCD = FindConfigDev(myCD, 1977, 104);
+    myCD = FindConfigDev(0L, 1977, 104);
 
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == myCD)
@@ -317,7 +322,7 @@ void main(int argc, char **argv)
         printf("Identyfing FLASH Devices:\n");
         
         /* Print out some details now about the Flash Chips - Manufacturer ID */
-        if (flashOK == readManufactureID(myCD->cd_BoardAddr, &flashManufactureID))
+        if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
         {
             printf("Manufacturing ID: Hign Device %1x, Low Device %1x\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
         }
@@ -329,7 +334,7 @@ void main(int argc, char **argv)
         }
         
         /* Print out some details now about the Flash Chips - Device ID */
-        if (flashOK == readDeviceID(myCD->cd_BoardAddr, &flashDeviceID))
+        if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
         {
             printf("Device ID: Hign Device %1x, Low Device %1x\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
         }
@@ -343,7 +348,7 @@ void main(int argc, char **argv)
     
     fileHandle = Open(argv[1], MODE_OLDFILE);
     
-    if (NULL != fileHandle)
+    if (0L != fileHandle)
     {      
         // TODO: read kickstart image
         // TODO: erase flash() with progress indicator
