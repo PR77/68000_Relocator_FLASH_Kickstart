@@ -56,6 +56,8 @@ typedef enum {
 /* Globals *******************************************************************/
 /*****************************************************************************/
 
+struct Library *ExpansionBase = NULL;
+
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
 /*****************************************************************************/
@@ -123,12 +125,25 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
 tFlashCommandStatus unlockFlashDevice(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
+
+#ifndef NDEBUG
+    printf("ENTRY: unlockFlashDevice(ULONG address 0x%X)\n", address);
+#endif
     
     *(UWORD *)(address + FLASH_UNLOCK_ADDR_1) = FLASH_UNLOCK_DATA_1;
+#ifndef NDEBUG
+    printf("FLOW: FLASH_UNLOCK_ADDR_1 0x%X, FLASH_UNLOCK_DATA_1 0x%X\n", (address + FLASH_UNLOCK_ADDR_1), FLASH_UNLOCK_DATA_1);
+#endif
     *(UWORD *)(address + FLASH_UNLOCK_ADDR_2) = FLASH_UNLOCK_DATA_2;
+#ifndef NDEBUG
+    printf("FLOW: FLASH_UNLOCK_ADDR_2 0x%X, FLASH_UNLOCK_DATA_2 0x%X\n", (address + FLASH_UNLOCK_ADDR_2), FLASH_UNLOCK_DATA_2);
+#endif
 
     flashCommandStatus = flashOK;
     
+#ifndef NDEBUG
+    printf("EXIT: unlockFlashDevice(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);    
 }
 
@@ -141,13 +156,26 @@ tFlashCommandStatus unlockFlashDevice(ULONG address)
 tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
+
+#ifndef NDEBUG
+    printf("ENTRY: readManufactureID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pManufactureID);
+#endif
     
     flashCommandStatus = unlockFlashDevice(address);
     
     *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
+#ifndef NDEBUG
+    printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
+#endif
     *pManufactureID = *(UWORD *)(address + FLASH_MANUFACTOR_ID);
-    *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;    
-    
+#ifndef NDEBUG
+    printf("FLOW: FLASH_MANUFACTOR_ID 0x%X, *pManufactureID 0x%X\n", (address + FLASH_MANUFACTOR_ID), *pManufactureID);
+#endif
+    flashCommandStatus = resetFlashDevice(address);
+
+#ifndef NDEBUG
+    printf("EXIT: readManufactureID(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);
 }
 
@@ -160,13 +188,26 @@ tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID)
 tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
+
+#ifndef NDEBUG
+    printf("ENTRY: readDeviceID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pDeviceID);
+#endif
     
     flashCommandStatus = unlockFlashDevice(address);
     
     *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
+#ifndef NDEBUG
+    printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
+#endif
     *pDeviceID = *(UWORD *)(address + FLASH_DEVICE_ID);
-    *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;    
+#ifndef NDEBUG
+    printf("FLOW: FLASH_DEVICE_ID 0x%X, *pDeviceID 0x%X\n", (address + FLASH_DEVICE_ID), *pDeviceID);
+#endif
+    flashCommandStatus = resetFlashDevice(address);
     
+#ifndef NDEBUG
+    printf("EXIT: readDeviceID(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);
 }
 
@@ -179,11 +220,18 @@ tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID)
 tFlashCommandStatus resetFlashDevice(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
+
+#ifndef NDEBUG
+    printf("ENTRY: resetFlashDevice(ULONG address 0x%X)\n", address);
+#endif
     
     *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;    
 
     flashCommandStatus = flashOK;
 
+#ifndef NDEBUG
+    printf("EXIT: resetFlashDevice(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);
 }
 
@@ -274,7 +322,6 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
 /*****************************************************************************/
 int main(int argc, char **argv)
 {
-    struct Library *ExpansionBase = NULL;
     struct ConfigDev *myCD = NULL;
     BPTR fileHandle = 0L;
     UWORD flashManufactureID, flashDeviceID;
@@ -317,14 +364,14 @@ int main(int argc, char **argv)
     /* Opened correctly, so print out the configuration details */
     {
         printf("FLASH Kickstart Hardware identified with configuration:\n");
-        printf("cd_BoardAddr = %lx\n", myCD->cd_BoardAddr);
-        printf("cd_BoardSize = %lx (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
+        printf("cd_BoardAddr = 0x%X\n", myCD->cd_BoardAddr);
+        printf("cd_BoardSize = 0x%X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
         printf("Identyfing FLASH Devices:\n");
         
         /* Print out some details now about the Flash Chips - Manufacturer ID */
         if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
         {
-            printf("Manufacturing ID: Hign Device %1x, Low Device %1x\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
+            printf("Manufacturing ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
         }
         else
         {
@@ -336,7 +383,7 @@ int main(int argc, char **argv)
         /* Print out some details now about the Flash Chips - Device ID */
         if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
         {
-            printf("Device ID: Hign Device %1x, Low Device %1x\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
+            printf("Device ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
         }
         else
         {
@@ -358,7 +405,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        print("Could not open specific Kickstart image [%s]", argv[1]);
+        printf("Could not open specific Kickstart image [%s]\n", argv[1]);
     }
 
     CloseLibrary(ExpansionBase);
