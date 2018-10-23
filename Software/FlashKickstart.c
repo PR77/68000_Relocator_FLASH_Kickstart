@@ -323,6 +323,7 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
 int main(int argc, char **argv)
 {
     struct ConfigDev *myCD = NULL;
+    struct FileInfoBlock myFIB;
     BPTR fileHandle = 0L;
     UWORD flashManufactureID, flashDeviceID;
 
@@ -393,15 +394,31 @@ int main(int argc, char **argv)
         }
     }
     
-    fileHandle = Open(argv[1], MODE_OLDFILE);
+    /* Check file size and other credentials */
+    fileHandle = Lock(argv[1], MODE_OLDFILE);
     
     if (0L != fileHandle)
-    {      
+    {
+        Examine(fileHandle, &myFIB);
+#ifndef NDEBUG
+        printf("MAIN: Kickstart image [%s], lockHandle 0x%X, fileSize %d\n", argv[1], fileHandle, (ULONG)myFIB.fib_Size);
+#endif
+        UnLock(fileHandle);
+    }
+        
+    fileHandle = Open(argv[1], MODE_OLDFILE);
+
+    if (0L != fileHandle)
+    {
+        //Examine(fileHandle, &myFIB);
+            //printf("File size: 0x%X", myFIB.fib_Size);
         // TODO: read kickstart image
         // TODO: erase flash() with progress indicator
         // TODO: write flash() with progress indicator
         // TODO: close fileHandle
-        // TODO: print nice success message       
+        // TODO: print nice success message  
+
+        Close(fileHandle);
     }
     else
     {
