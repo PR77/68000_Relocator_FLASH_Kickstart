@@ -1,5 +1,6 @@
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
+#include <clib/intuition_protos.h>
 #include <clib/expansion_protos.h>
 
 #include <stdio.h>
@@ -10,7 +11,7 @@
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
-#define SECTOR_SIZE		        0xFFFF
+#define SECTOR_SIZE		        0x10000
 #define MAX_SECTORS             8
 
 #define TOGGLE_STATUS           0x8080
@@ -57,6 +58,10 @@ typedef enum {
 /*****************************************************************************/
 
 struct Library *ExpansionBase = NULL;
+struct Library *IntuitionBase = NULL;
+
+char alertMsg[] = "\x00\xC0\x14 ABOUT TO FLASH KICKSTART CHIPS \x00\x01" \
+                  "\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
 
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
@@ -88,6 +93,9 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
     UWORD currentWord, previousWord;
     UBYTE loopDelay;
     
+#ifndef NDEBUG
+    printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
+#endif
     currentWord = *(UWORD *)address;
 
     do {
@@ -101,6 +109,10 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
         previousWord = currentWord;
         currentWord = *(UWORD *)address;
         
+#ifndef NDEBUG
+        printf("FLOW: previousWord 0x%X, currentWord 0x%X)\n", previousWord, currentWord);
+#endif
+
         if (0 != (previousWord ^ currentWord) & TOGGLE_STATUS)
         {
             if (currentWord & EXCEEDED_TIME)
@@ -112,7 +124,10 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
         }
 
     } while ((flashBusy == flashCommandStatus) || (flashStatusError == flashCommandStatus));
-    
+
+#ifndef NDEBUG
+    printf("EXIT: checkFlashStatus(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);
 }
 
@@ -245,16 +260,25 @@ tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
 
+#ifndef NDEBUG
+    printf("ENTRY: eraseFlashSector(ULONG address 0x%X, UBYTE sectorNumber 0x%X)\n", address, sectorNumber);
+#endif
+
     if (sectorNumber < MAX_SECTORS)
     {
         if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
         {
             *(ULONG *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;    
+#ifndef NDEBUG
+            printf("FLOW: FLASH_ERASE_ADDR_1 0x%X, FLASH_ERASE_DATA_1 0x%X\n", (address + FLASH_ERASE_ADDR_1), FLASH_ERASE_DATA_1);
+#endif
             
             if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
             {
                 *(ULONG *)(address + (sectorNumber << 16)) = FLASH_SECTOR_DATA_1;
-
+#ifndef NDEBUG
+                printf("FLOW: Sector Address 0x%X, FLASH_SECTOR_DATA_1 0x%X\n", address + (sectorNumber << 16), FLASH_SECTOR_DATA_1);
+#endif
                 flashCommandStatus = flashOK;                
             }
         }
@@ -264,6 +288,9 @@ tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
         flashCommandStatus = flashEraseError;
     }
     
+#ifndef NDEBUG
+    printf("EXIT: eraseFlashSector(flashCommandStatus 0x%X)\n", flashCommandStatus);
+#endif
     return (flashCommandStatus);
 }
 
@@ -334,6 +361,16 @@ int main(int argc, char **argv)
         exit(RETURN_FAIL);
     }
     
+    /* Open any version intuition.library to support displayAlert */
+    IntuitionBase = OpenLibrary("intuition.library", 0);
+    
+    /* Check if opened correctly, otherwise exit with message and error */
+    if (NULL == IntuitionBase)
+    {
+        printf("Failed to open intuition.library\n");
+        exit(RETURN_FAIL);
+    }
+    
     /* Open any version expansion.library to read in ConfigDevs */
     ExpansionBase = OpenLibrary("expansion.library", 0L);
     
@@ -359,6 +396,7 @@ int main(int argc, char **argv)
     {
         printf("Failed to identify FLASH Kickstart Hardware\n");
         CloseLibrary(ExpansionBase);
+        CloseLibrary(IntuitionBase);
         exit(RETURN_FAIL);
     }
     else
@@ -377,6 +415,7 @@ int main(int argc, char **argv)
         else
         {
             printf("Failed to identify FLASH Manufacturer ID\n");
+            CloseLibrary(IntuitionBase);
             CloseLibrary(ExpansionBase);
             exit(RETURN_FAIL);            
         }
@@ -389,6 +428,7 @@ int main(int argc, char **argv)
         else
         {
             printf("Failed to identify FLASH Device ID\n");
+            CloseLibrary(IntuitionBase);
             CloseLibrary(ExpansionBase);
             exit(RETURN_FAIL);            
         }
@@ -410,8 +450,20 @@ int main(int argc, char **argv)
 
     if (0L != fileHandle)
     {
-        //Examine(fileHandle, &myFIB);
-            //printf("File size: 0x%X", myFIB.fib_Size);
+        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 0);
+        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+
+        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 1);
+        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+
+        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 2);
+        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+
+        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 3);
+        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+        
+        
+        // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
         // TODO: read kickstart image
         // TODO: erase flash() with progress indicator
         // TODO: write flash() with progress indicator
@@ -425,5 +477,6 @@ int main(int argc, char **argv)
         printf("Could not open specific Kickstart image [%s]\n", argv[1]);
     }
 
+    CloseLibrary(IntuitionBase);
     CloseLibrary(ExpansionBase);
 }
