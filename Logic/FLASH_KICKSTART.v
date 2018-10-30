@@ -67,7 +67,7 @@ reg [7:0] autoConfigBaseFlash = 8'b00000000;
 
 wire DS = (LDS & UDS);
 
-wire AUTOCONFIG_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hE8}) && ~CPU_AS && ~&shutup && ~&configured;
+wire AUTOCONFIG_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hE8}) && ~CPU_AS && ~&shutup && ~&configured && (programmingSession == 1'b1);
 wire AUTOCONFIG_READ = (AUTOCONFIG_RANGE && (RW == 1'b1));
 wire AUTOCONFIG_WRITE = (AUTOCONFIG_RANGE && (RW == 1'b0));
 
@@ -177,7 +177,7 @@ assign MB_AS = (programmingSession == 1'b1 && KICKSTART_RANGE) ? CPU_AS : 1'b1;
 
 reg INTERNAL_CYCLE_DTACK = 1'b1;
 
-// Everything is in the 7MHz clock domain so this shoudl keep things simple.
+// Everything is in the 7MHz clock domain so this should keep things simple.
 
 always @(posedge MB_CLK or posedge CPU_AS) begin
     
@@ -190,7 +190,7 @@ always @(posedge MB_CLK or posedge CPU_AS) begin
     end
 end
 
-assign MB_DTACK = (INTERNAL_CYCLE_DTACK) ? 1'bZ : 1'b0;
+assign MB_DTACK = (INTERNAL_CYCLE_DTACK && (programmingSession == 1'b0) && KICKSTART_RANGE) ? 1'bZ : 1'b0;
 
 // --- Reset Duration Detection
 
@@ -204,7 +204,9 @@ always @(posedge E_CLK or negedge RESET) begin
         programmingSession <= 1'b0;
     end else begin
     
-        eClockCounter <= eClockCounter + 1;
+        //if (RESET == 1'b0) begin
+            eClockCounter <= eClockCounter + 1;
+        //end
         
         if (programmingSession == 1'b0 && &eClockCounter) begin
             programmingSession <= 1'b1;
