@@ -197,16 +197,23 @@ assign MB_DTACK = (INTERNAL_CYCLE_DTACK && (programmingSession == 1'b0) && KICKS
 // Count the number of E clock cycles while /RESET is low. Every new /RESET negative edge
 // resets the clock cycle counter.
 
-always @(posedge E_CLK or negedge RESET) begin
+reg START_COUNTING = 1'b0;
+
+always @(posedge E_CLK) begin
     
-    if (RESET == 1'b0) begin
+    if (RESET == 1'b1) begin
+        START_COUNTING <= 1'b0;
+    end
+    
+    if (RESET == 1'b0 && START_COUNTING == 1'b0) begin
         eClockCounter <= 20'b00000000000000000000;
         programmingSession <= 1'b0;
+        START_COUNTING <= 1'b1;
     end else begin
     
-        //if (RESET == 1'b0) begin
+        if (START_COUNTING == 1'b1) begin
             eClockCounter <= eClockCounter + 1;
-        //end
+        end
         
         if (programmingSession == 1'b0 && &eClockCounter) begin
             programmingSession <= 1'b1;
