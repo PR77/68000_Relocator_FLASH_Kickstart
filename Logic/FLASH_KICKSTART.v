@@ -46,11 +46,10 @@
     // Flash control
     output [1:0] FLASH_WR,
     output [1:0] FLASH_RD,
+    output FLASH_A19,
     
     // Configuration and control
-    input PROGRAM,
-    input ONE_MEG
-
+    output BLOCK
     );
     
 // --- CONTROL GLOBALS
@@ -70,10 +69,6 @@ wire DS = (LDS & UDS);
 wire AUTOCONFIG_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hE8}) && ~CPU_AS && ~&shutup && ~&configured && (programmingSession == 1'b1);
 wire AUTOCONFIG_READ = (AUTOCONFIG_RANGE && (RW == 1'b1));
 wire AUTOCONFIG_WRITE = (AUTOCONFIG_RANGE && (RW == 1'b0));
-
-wire FLASH_RANGE = ({ADDRESS_HIGH[23:20]} == {autoConfigBaseFlash[7:4]}) && ~CPU_AS && ~DS && configured;
-
-wire KICKSTART_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hF8}) && ~CPU_AS & ~DS;
 
 // AUTOCONFIG cycle.
 always @(negedge DS or negedge RESET) begin
@@ -154,6 +149,13 @@ end
 // Output specific AUTOCONFIG data.
 assign DATA[15:12] = (AUTOCONFIG_READ == 1'b1 && ~&shutup) ? autoConfigData : 4'bZZZZ;
 
+// --- KICKSTART AND FLASH RANGE Control
+
+// KICKSTART_RANGE is active throughout 0xF80000 to 0xFFFFFF for 256K and 512K KS support.
+wire KICKSTART_RANGE = ({ADDRESS_HIGH[23:19]} == {5'h1F}) && ~CPU_AS & ~DS;
+
+wire FLASH_RANGE = ({ADDRESS_HIGH[23:20]} == {autoConfigBaseFlash[7:4]}) && ~CPU_AS && ~DS && configured;
+
 // --- FLASH Control
 
 assign FLASH_RD[1:0] = (programmingSession == 1'b0 && RW == 1'b0 && KICKSTART_RANGE) ? {UDS, LDS} : 
@@ -167,7 +169,8 @@ assign FLASH_WR[1:0] = (programmingSession == 1'b1 && RW == 1'b1 && FLASH_RANGE)
 // the Amiga Mothboard to allow GARY to perform the address decoding. However when not
 // in programming session, this means using the FLASH KS, then block /AS.
 
-assign MB_AS = (programmingSession == 1'b1 && KICKSTART_RANGE) ? CPU_AS : 1'b1;
+assign MB_AS = (programmingSession == 1'b0 && KICKSTART_RANGE) ? 1'b1 : 
+               (AUTOCONFIG_RANGE) ? 1'b1 : CPU_AS;
 
 /// --- /DTACK Override Control
 
@@ -182,15 +185,15 @@ reg INTERNAL_CYCLE_DTACK = 1'b1;
 always @(posedge MB_CLK or posedge CPU_AS) begin
     
     if (CPU_AS == 1'b1) begin
-        INTERNAL_CYCLE_DTACK <= 1'b1;
+        INTERNAL_CYCLE_DTACK <= 1'b0;
     end else begin
         
         // Rising edge of S4.    
-        INTERNAL_CYCLE_DTACK <= 1'b0;
+        INTERNAL_CYCLE_DTACK <= 1'b1;
     end
 end
 
-assign MB_DTACK = (INTERNAL_CYCLE_DTACK && (programmingSession == 1'b0) && KICKSTART_RANGE) ? 1'bZ : 1'b0;
+assign MB_DTACK = (INTERNAL_CYCLE_DTACK && ((programmingSession == 1'b0) && FLASH_RANGE) || AUTOCONFIG_RANGE) ? 1'b0 : 1'bZ;
 
 // --- Reset Duration Detection
 
@@ -205,6 +208,28 @@ always @(posedge E_CLK) begin
         START_COUNTING <= 1'b0;
     end
     
+    if (RESET == 1'b0 && START_COUNTING == 1'b0 && programmingSession == 1'b0) begin
+        eClockCounter <= 20'b00000000000000000000;
+        programmingSession <= 1'b0;
+        START_COUNTING <= 1'b1;
+    end else begin
+    
+        if (START_COUNTING == 1'b1) begin
+            eClockCounter <= eClockCounter + 1;
+        end
+        
+        //TODO: due to /RESET glitches after a long reset, need to time the time after reset before allowing a session change back to programming
+        
+        if (programmingSession == 1'b0 && &eClockCounter) begin
+            programmingSession <= 1'b1;
+        end
+    end
+
+    /*
+    if (RESET == 1'b1) begin
+        START_COUNTING <= 1'b0;
+    end
+    
     if (RESET == 1'b0 && START_COUNTING == 1'b0) begin
         eClockCounter <= 20'b00000000000000000000;
         programmingSession <= 1'b0;
@@ -215,10 +240,16 @@ always @(posedge E_CLK) begin
             eClockCounter <= eClockCounter + 1;
         end
         
+        //TODO: due to /RESET glitches after a long reset, need to time the time after reset before allowing a session change back to programming
+        
         if (programmingSession == 1'b0 && &eClockCounter) begin
             programmingSession <= 1'b1;
         end
     end
+    */
 end
+
+assign BLOCK = programmingSession;
+assign FLASH_A19 = START_COUNTING;
 
 endmodule
