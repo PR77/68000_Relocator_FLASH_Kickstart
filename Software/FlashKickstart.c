@@ -8,6 +8,18 @@
 #include <stdlib.h>
 
 /*****************************************************************************/
+/* Macros ********************************************************************/
+/*****************************************************************************/
+
+#define USE_RAM
+
+#ifdef USE_RAM
+#undef USE_FLASH
+#else
+#define USE_FLASH
+#endif
+
+/*****************************************************************************/
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
@@ -344,6 +356,63 @@ tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
     return (flashCommandStatus);
 }
 
+
+void hexDump (char *desc, void *addr, int len) {
+    
+    // https://stackoverflow.com/questions/7775991/how-to-get-hexdump-of-a-structure-data
+    
+    int i;
+    unsigned char buff[17];
+    unsigned char *pc = (unsigned char*)addr;
+
+    // Output description if given.
+    if (desc != NULL)
+        printf ("%s:\n", desc);
+
+    if (len == 0) {
+        printf("  ZERO LENGTH\n");
+        return;
+    }
+    if (len < 0) {
+        printf("  NEGATIVE LENGTH: %i\n",len);
+        return;
+    }
+
+    // Process every byte in the data.
+    for (i = 0; i < len; i++) {
+        // Multiple of 16 means new line (with line offset).
+
+        if ((i % 16) == 0) {
+            // Just don't print ASCII for the zeroth line.
+            if (i != 0)
+                printf ("  %s\n", buff);
+
+            // Output the offset.
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+        printf (" %02x", pc[i]);
+
+        // And store a printable ASCII character for later.
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+            buff[i % 16] = '.';
+        else
+            buff[i % 16] = pc[i];
+        buff[(i % 16) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly 16 characters.
+    while ((i % 16) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII bit.
+    printf ("  %s\n", buff);
+}
+
+
 /*****************************************************************************/
 /* Main **********************************************************************/
 /*****************************************************************************/
@@ -408,6 +477,7 @@ int main(int argc, char **argv)
         printf("Identyfing FLASH Devices:\n");
         
         /* Print out some details now about the Flash Chips - Manufacturer ID */
+        /*
         if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
         {
             printf("Manufacturing ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
@@ -419,8 +489,10 @@ int main(int argc, char **argv)
             CloseLibrary(ExpansionBase);
             exit(RETURN_FAIL);            
         }
+        */
         
         /* Print out some details now about the Flash Chips - Device ID */
+        /*
         if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
         {
             printf("Device ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
@@ -432,6 +504,7 @@ int main(int argc, char **argv)
             CloseLibrary(ExpansionBase);
             exit(RETURN_FAIL);            
         }
+        */
     }
     
     /* Check file size and other credentials */
@@ -450,6 +523,7 @@ int main(int argc, char **argv)
 
     if (0L != fileHandle)
     {
+        /*
         eraseFlashSector((ULONG)myCD->cd_BoardAddr, 0);
         checkFlashStatus((ULONG)myCD->cd_BoardAddr);
 
@@ -461,7 +535,50 @@ int main(int argc, char **argv)
 
         eraseFlashSector((ULONG)myCD->cd_BoardAddr, 3);
         checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+        */
         
+        APTR memoryHandle = AllocMem(0x40000, 0);
+        ULONG bytesRead = 0;
+        
+        if (memoryHandle)
+        {
+            ULONG brdAddress = (ULONG)myCD->cd_BoardAddr;
+            
+            bytesRead = Read(fileHandle, memoryHandle, 0x40000);
+            printf("Read Bytes [%d]\n", bytesRead);
+
+            if (myFIB.fib_Size == 0x40000)
+            {
+                // As A18 will be high when the FLASH KICKSTART is active (due to prototype HW) copy 4 blocks to fill RAM.
+                
+                CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
+            }
+            
+            if (myFIB.fib_Size == 0x80000)
+            {
+                // First 256K
+                CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
+                
+                Seek(fileHandle, 0x40000, OFFSET_BEGINNING);
+                Read(fileHandle, memoryHandle, 0x40000);
+            
+                // Second 256K
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
+                CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
+            }
+
+            FreeMem(memoryHandle, 0x40000);
+
+            hexDump("Flash KS Header", (APTR)brdAddress, 64);
+            hexDump("Flash KS Header", (APTR)(brdAddress + 0x40000), 64);
+            hexDump("Flash KS Header", (APTR)(brdAddress + 0x80000), 64);
+            hexDump("Flash KS Header", (APTR)(brdAddress + 0xC0000), 64);
+
+        }
         
         // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
         // TODO: read kickstart image
