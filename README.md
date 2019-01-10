@@ -46,6 +46,6 @@ In principle the operation is fairly simple. A CPLD is used to switch between th
 ### Known Issues And Pending Items
 As this design is still in-the-making, the following items are pending:
 
-1. PCB Layout and schematic finalisation. Pinning for CPLD is open to allow for routing.
-2. CPLD logic verification. Currently fitted to a XC9572XL, however target device is XC9536XL.
-3. Testing.
+1. PCB Layout and schematic finalisation.
+2. Support for ROMs based at address 0xF00000.
+3. Test with different ROMs.
