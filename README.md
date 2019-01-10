@@ -11,8 +11,10 @@ To allow for FLASH based Kickstart images to be mapped in the same address space
 Nice 3D model:
 ![3D Model](/Images/68000RelocatorFLASHKickstart.png)
 
+... this is not the final design as routing has not been completed. So some components may move, or added.
+
 ### How It Works
-Content to be added. In the meantime, refer to the Verilog for a rough idea.
+In principle the operation is fairly simple. A CPLD is used to switch between the ROM Kickstart on the Motherboard or the Flash Kickstart on the CPU Relocator. Switching is performed by an active /RESET (CTRL-A-A) without interruption for longer than 1 second. Shorter /RESET durations will simply just reset the Amiga. After a POR (Power On Reset) by default the Flash Kickstart on the CPU Relocator will be used.
 
 #### ROM based Kickstart
 
