@@ -11,7 +11,7 @@ To allow for Flash based Kickstart images to be mapped in the same address space
 Nice 3D model:
 ![3D Model](/Images/68000RelocatorFLASHKickstart.png)
 
-... this is not the final design as routing has not been completed. So some components may move, or added.
+... this is the final design.
 
 ### Prototype
 Drawing in from the experience and usefulness of my prototyping jig created for my Rev-1 Accelerator (https://github.com/PR77/A500_ACCEL_RAM_IDE-Rev-1), I decided to do the same for this hardware expansion.
@@ -46,6 +46,5 @@ In principle the operation is fairly simple. A CPLD is used to switch between th
 ### Known Issues And Pending Items
 As this design is still in-the-making, the following items are pending:
 
-1. PCB Layout and schematic finalisation.
-2. Support for ROMs based at address 0xF00000.
-3. Test with different ROMs.
+1. Support for ROMs based at address 0xF00000.
+2. Test with different ROMs.
