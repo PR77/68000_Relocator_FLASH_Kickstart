@@ -38,7 +38,7 @@
         
     // Address bus
     input [23:16] ADDRESS_HIGH,
-    input [6:0] ADDRESS_LOW,
+    input [7:1] ADDRESS_LOW,
     
     // Data bus
     inout [15:12] DATA,
@@ -49,7 +49,7 @@
     output FLASH_A19,
     
     // Configuration and control
-    output BLOCK
+    input BLOCK
     );
     
 // --- Control Global Registers
@@ -61,12 +61,25 @@ reg programmingSession = 1'b0;
 
 reg configured = 1'b0;
 reg shutup = 1'b0;
+reg allConfigured = 1'b0;
 reg [3:0] autoConfigData = 4'b0000;
 reg [7:0] autoConfigBaseFlash = 8'b00000000;
 
 wire DS = (LDS & UDS);
 
-wire AUTOCONFIG_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hE8}) && ~CPU_AS && ~&shutup && ~&configured && (programmingSession == 1'b1);
+wire AUTOCONFIG_RANGE = ({ADDRESS_HIGH[23:16]} == {8'hE8}) && ~CPU_AS && ~&allConfigured && (programmingSession == 1'b1);
+
+// Create allConfigured array based on "configured" and "shutup" status'.
+always @(posedge CPU_AS or negedge RESET) begin
+
+    if (RESET == 1'b0) begin
+        allConfigured <= 1'b0;
+    
+    end else begin
+    
+        allConfigured <= (configured | shutup);
+    end
+end
 
 // AUTOCONFIG cycle.
 always @(negedge DS or negedge RESET) begin
@@ -80,61 +93,65 @@ always @(negedge DS or negedge RESET) begin
 
        if (AUTOCONFIG_RANGE == 1'b1 && RW == 1'b0) begin
             // AutoConfig Write sequence. Here is where we receive from the OS the base address for the RAM.
-            case (ADDRESS_LOW[6:0])
-                8'h24: begin
+            case (ADDRESS_LOW[7:1])
+                'h24: begin
                 // Written second
                     autoConfigBaseFlash[7:4] <= DATA[15:12];  // Flash
                     configured <= 1'b1;
                 end
 
-                8'h25: begin
+                'h25: begin
                 // Written first
                     autoConfigBaseFlash[3:0] <= DATA[15:12]; // Flash
                 end
 
-                8'h26: begin
+                'h26: begin
                 // Written asynchronously if the KS decides to not configure a specific device
-                    shutup <= 1'b1;  // Flash
+                    shutup <= 1'b1;                         // Flash
                 end
                 
             endcase
         end
 
        // AutoConfig Read sequence. Here is where we publish the RAM and I/O port size and hardware attributes.
-       case (ADDRESS_LOW[6:0])
-            8'h00: begin
+       case (ADDRESS_LOW[7:1])
+            'h00: begin
                 autoConfigData <= 4'hC;     // (00) Flash
             end
             
-            8'h01: begin
-                autoConfigData <= 4'h5;     // (02) Flash
+            'h01: begin
+                if (BLOCK == 1'b1) begin
+                    autoConfigData <= 4'h4;     // (02) Flash 512K
+                end else begin
+                    autoConfigData <= 4'h5;     // (02) Flash 1M
+                end
             end
             
-            8'h02: autoConfigData <= 4'h9;  // (04)  
+            'h02: autoConfigData <= 4'h9;   // (04)  
             
-            8'h03: begin
+            'h03: begin
                 autoConfigData <= 4'h7;     // (06) Flash
             end
 
-            8'h04: autoConfigData <= 4'h7;  // (08/0A)
-            8'h05: autoConfigData <= 4'hF;
+            'h04: autoConfigData <= 4'h7;   // (08/0A)
+            'h05: autoConfigData <= 4'hF;
             
-            8'h06: autoConfigData <= 4'hF;  // (0C/0E)
-            8'h07: autoConfigData <= 4'hF;
+            'h06: autoConfigData <= 4'hF;   // (0C/0E)
+            'h07: autoConfigData <= 4'hF;
             
-            8'h08: autoConfigData <= 4'hF;  // (10/12)
-            8'h09: autoConfigData <= 4'h8;
-            8'h0A: autoConfigData <= 4'h4;  // (14/16)
-            8'h0B: autoConfigData <= 4'h6;                
+            'h08: autoConfigData <= 4'hF;   // (10/12)
+            'h09: autoConfigData <= 4'h8;
+            'h0A: autoConfigData <= 4'h4;   // (14/16)
+            'h0B: autoConfigData <= 4'h6;                
             
-            8'h0C: autoConfigData <= 4'hA;  // (18/1A)
-            8'h0D: autoConfigData <= 4'hF;
-            8'h0E: autoConfigData <= 4'hB;  // (1C/1E)
-            8'h0F: autoConfigData <= 4'hE;
-            8'h10: autoConfigData <= 4'hA;  // (20/22)
-            8'h11: autoConfigData <= 4'hA;
-            8'h12: autoConfigData <= 4'hB;  // (24/26)
-            8'h13: autoConfigData <= 4'h3;
+            'h0C: autoConfigData <= 4'hA;   // (18/1A)
+            'h0D: autoConfigData <= 4'hF;
+            'h0E: autoConfigData <= 4'hB;   // (1C/1E)
+            'h0F: autoConfigData <= 4'hE;
+            'h10: autoConfigData <= 4'hA;   // (20/22)
+            'h11: autoConfigData <= 4'hA;
+            'h12: autoConfigData <= 4'hB;   // (24/26)
+            'h13: autoConfigData <= 4'h3;
 
             default: 
                 autoConfigData <= 4'hF;
@@ -144,7 +161,7 @@ always @(negedge DS or negedge RESET) begin
 end
 
 // Output specific AUTOCONFIG data.
-assign DATA[15:12] = (AUTOCONFIG_RANGE == 1'b1 && RW == 1'b1 && ~DS && ~&shutup) ? {autoConfigData[3:0]} : 4'bZZZZ;
+assign DATA[15:12] = (AUTOCONFIG_RANGE == 1'b1 && RW == 1'b1 && ~DS && ~&allConfigured) ? {autoConfigData[3:0]} : 4'bZZZZ;
 
 // --- Custom Chip Access Detection
 
@@ -214,24 +231,29 @@ assign MB_AS = (programmingSession == 1'b0 && (KICKSTART_RANGE || KICKSTART_RESE
 // When accessing the FLASH KS, /AS is not asserted on the Amiga Motherboard, therefore
 // GARY will not decode and assert /DTACK. As a result, we need to locally create this
 // signal. Conventional timing is used. I.e., /DTACK asserted in rising edge of S4.
+// A slow /DTACK is used for AUTOCONFIG in the event of a cascaded chain request; if used
+// with an accelerator.
 
-reg INTERNAL_CYCLE_DTACK = 1'b1;
+reg INTERNAL_CYCLE_DTACK_NORMAL = 1'b0;
+reg INTERNAL_CYCLE_DTACK_SLOW = 1'b0;
 
 // Everything is in the 7MHz clock domain so this should keep things simple.
-
-always @(negedge MB_CLK or posedge CPU_AS) begin
+always @(posedge MB_CLK or posedge CPU_AS) begin
     
     if (CPU_AS == 1'b1) begin
-        INTERNAL_CYCLE_DTACK <= 1'b0;
+        INTERNAL_CYCLE_DTACK_NORMAL <= 1'b0;
+        INTERNAL_CYCLE_DTACK_SLOW <= 1'b0;
     end else begin
         
         // Falling edge of S4.    
-        INTERNAL_CYCLE_DTACK <= 1'b1;
+        INTERNAL_CYCLE_DTACK_NORMAL <= 1'b1;
+        INTERNAL_CYCLE_DTACK_SLOW <= INTERNAL_CYCLE_DTACK_NORMAL;
     end
 end
 
-assign MB_DTACK = (INTERNAL_CYCLE_DTACK && (((programmingSession == 1'b0) && (KICKSTART_RANGE || KICKSTART_RESET_RANGE)) || AUTOCONFIG_RANGE)) ? 1'b0 : 1'bZ;
-
+assign MB_DTACK = (INTERNAL_CYCLE_DTACK_NORMAL && ((programmingSession == 1'b0) && (KICKSTART_RANGE || KICKSTART_RESET_RANGE))) ? 1'b0 :
+                  (INTERNAL_CYCLE_DTACK_SLOW && ((programmingSession == 1'b1) && AUTOCONFIG_RANGE)) ? 1'b0 :1'bZ;
+                  
 // --- Reset Duration Detection
 
 reg [1:0] stSessionChange = 2'b00;
@@ -239,7 +261,6 @@ reg [1:0] stSessionChange = 2'b00;
 // Active /RESET without interruption for longer than 1 second will toggle between
 // Programming Session using the ROM Kickstart and Flash Kickstart. Default is always 
 // Flash Kickstart after POR.
-
 always @(posedge E_CLK) begin
     
     if (RESET == 1'b1) begin

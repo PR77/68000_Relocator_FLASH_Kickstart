@@ -22,6 +22,12 @@ So the prototype looks like this:
 
 To keep the prototype simple, instead of using Flash devices (AMD AM29F040B are my target has I have these and experience with the devices) I used simple SRAMs (also from my Accelerator). There was also the learning curve with using VBCC (http://eab.abime.net/showthread.php?t=83113) to develop the software to control the hardware, but with that sorted out I managed to finally get the prototype to work.
 
+### Final Hardware
+Here is the final hardware loaded and installed with my Rev-2 Accelerator (https://github.com/PR77/A500_ACCEL_RAM_IDE-Rev-2). I was not able to easily source new AMD AM29F040B Flash devices so I changed over to SST39SF0x0A devices. They are JEDEC compliant so no issue with the pinout.
+
+![Final PCB](/Images/FinalHardware.jpg)
+
+### In Operation
 My test Amiga 500 has a ROM Kickstart version 1.2, so the boot screen looks like this:
 
 ![ROM Kickstart 1.2](/Images/Kickstart1.2.jpg)
