@@ -27,6 +27,29 @@ Here is the final hardware loaded and installed with my Rev-2 Accelerator (https
 
 ![Final PCB](/Images/FinalHardware.jpg)
 
+### BOM
+For those wanting to build their own hardware, here is the BOM;
+
+| "Reference(s)" | "Value"      | "Footprint"                                                      | "Datasheet" |
+|----------------|--------------|------------------------------------------------------------------|-------------|
+| "C1"           | "10uF"       | "Capacitors_Tantalum_SMD:CP_Tantalum_Case-B_EIA-3528-21_Hand"    |             |
+| "C2"           | "10uF"       | "Capacitors_Tantalum_SMD:CP_Tantalum_Case-B_EIA-3528-21_Hand"    |             |
+| "C3"           | "100nF"      | "Capacitors_SMD:C_0805_HandSoldering"                            |             |
+| "C4"           | "100nF"      | "Capacitors_SMD:C_0805_HandSoldering"                            |             |
+| "C5"           | "100nF"      | "Capacitors_SMD:C_0805_HandSoldering"                            |             |
+| "C6"           | "100nF"      | "Capacitors_SMD:C_0805_HandSoldering"                            |             |
+| "J3"           | "BLOCK"      | "Pin_Headers:Pin_Header_Straight_1x02_Pitch2.54mm"               |             |
+| "J4"           | "JTAG"       | "Pin_Headers:Pin_Header_Straight_1x06_Pitch2.54mm"               |             |
+| "R1"           | "10K"        | "Resistors_SMD:R_0805_HandSoldering"                             |             |
+| "R2"           | "10K"        | "Resistors_SMD:R_0805_HandSoldering"                             |             |
+| "R3"           | "10K"        | "Resistors_SMD:R_0805_HandSoldering"                             |             |
+| "U1"           | "68000D"     | "Pin_Headers:Pin_Header_Straight_2x32_Pitch2.54mm"               |             |
+| "U2"           | "68000D"     | "Housings_DIP:DIP-64_W22.86mm_Socket_LongPads"                   |             |
+| "U3"           | "SST39SF040" | "Housings_DIP:DIP-32_W15.24mm_Socket"                            |             |
+| "U4"           | "SST39SF040" | "Housings_DIP:DIP-32_W15.24mm_Socket"                            |             |
+| "U5"           | "XC9572VQ44" | "Housings_QFP:TQFP-44_10x10mm_Pitch0.8mm"                        |             |
+| "U6"           | "LM1117-3.3" | "TO_SOT_Packages_SMD:SOT-223-3_TabPin2"                          |             |
+
 ### In Operation
 My test Amiga 500 has a ROM Kickstart version 1.2, so the boot screen looks like this:
 
