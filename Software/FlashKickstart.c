@@ -4,66 +4,25 @@
 #include <clib/expansion_protos.h>
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "FlashDeviceSST39.h"
+#include "Helpers.h"
 
 /*****************************************************************************/
 /* Macros ********************************************************************/
 /*****************************************************************************/
 
-#define USE_RAM
-
-#ifdef USE_RAM
-#undef USE_FLASH
-#else
-#define USE_FLASH
-#endif
-
 /*****************************************************************************/
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
-#define SECTOR_SIZE		        0x10000
-#define MAX_SECTORS             8
-
-#define TOGGLE_STATUS           0x8080
-#define EXCEEDED_TIME           0x2020
-
-#define FLASH_RESET_ADDR_1      (0x0000 << 1)
-#define FLASH_RESET_DATA_1      (0xF0F0)
-
-#define FLASH_ERASE_ADDR_1      (0x0555 << 1)
-#define FLASH_ERASE_DATA_1      (0x8080)
-#define FLASH_SECTOR_DATA_1     (0x3030)
-
-#define FLASH_PROGRAM_ADDR_1    (0x0555 << 1)
-#define FLASH_PROGRAM_DATA_1    (0xA0A0)
-
-#define FLASH_UNLOCK_ADDR_1     (0x0555 << 1)
-#define FLASH_UNLOCK_DATA_1     (0xAAAA)
-#define FLASH_UNLOCK_ADDR_2     (0x02AA << 1)
-#define FLASH_UNLOCK_DATA_2     (0x5555)
-
-#define FLASH_AUTOSEL_ADDR_1    (0x0555 << 1)
-#define FLASH_AUTOSEL_DATA_1    (0x9090)
-
-#define FLASH_MANUFACTOR_ID     (0x0000 << 1)
-#define FLASH_DEVICE_ID         (0x0001 << 1)
+#define LOOP_TIMEOUT    (ULONG)10000
 
 /*****************************************************************************/
 /* Types *********************************************************************/
 /*****************************************************************************/
-
-typedef enum {
-    
-    flashIdle = 0,
-    flashBusy,
-    flashStatusError,
-    flashEraseError,
-    flashProgramError,
-    flashOK
-    
-} tFlashCommandStatus;
 
 /*****************************************************************************/
 /* Globals *******************************************************************/
@@ -72,346 +31,23 @@ typedef enum {
 struct Library *ExpansionBase = NULL;
 struct Library *IntuitionBase = NULL;
 
-char alertMsg[] = "\x00\xC0\x14 ABOUT TO FLASH KICKSTART CHIPS \x00\x01" \
-                  "\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
+char programAlertMsg[] = "\x00\xC0\x14 ABOUT TO FLASH KICKSTART CHIPS \x00\x01" \
+"\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
+                  
+char eraseAlertMsg[] = "\x00\xC0\x14 ABOUT TO ERASE KICKSTART CHIPS \x00\x01" \
+"\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
+
+char progressIndicator[] = "-\\|//";
 
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
 /*****************************************************************************/
 
-tFlashCommandStatus checkFlashStatus(ULONG address);
-tFlashCommandStatus unlockFlashDevice(ULONG address);
-tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID);
-tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID);
-tFlashCommandStatus resetFlashDevice(ULONG address);
-tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber);
-tFlashCommandStatus writeFlashByte(ULONG address, UWORD data);
-tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData);
 int main(int argc, char **argv);
 
 /*****************************************************************************/
 /* Code **********************************************************************/
 /*****************************************************************************/
-
-/*****************************************************************************/
-/* Function:    checkFlashStatus()                                           */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address                                                */
-/* Description: Polls Flash device for completion or timeout status          */
-/*****************************************************************************/
-tFlashCommandStatus checkFlashStatus(ULONG address)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-    UWORD currentWord, previousWord;
-    UBYTE loopDelay;
-    
-#ifndef NDEBUG
-    printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
-#endif
-    currentWord = *(UWORD *)address;
-
-    do {
-        loopDelay++;
-    } while (loopDelay < 100);
-    
-    flashCommandStatus = flashBusy;
-
-    do {
-        
-        previousWord = currentWord;
-        currentWord = *(UWORD *)address;
-        
-#ifndef NDEBUG
-        printf("FLOW: previousWord 0x%X, currentWord 0x%X)\n", previousWord, currentWord);
-#endif
-
-        if (0 != (previousWord ^ currentWord) & TOGGLE_STATUS)
-        {
-            if (currentWord & EXCEEDED_TIME)
-                flashCommandStatus = flashStatusError;
-        }
-        else
-        {
-            flashCommandStatus = flashOK;
-        }
-
-    } while ((flashBusy == flashCommandStatus) || (flashStatusError == flashCommandStatus));
-
-#ifndef NDEBUG
-    printf("EXIT: checkFlashStatus(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    unlockFlashDevice()                                          */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address                                                */
-/* Description: Sends initial unlock command sequence to flash device        */
-/*****************************************************************************/
-tFlashCommandStatus unlockFlashDevice(ULONG address)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-#ifndef NDEBUG
-    printf("ENTRY: unlockFlashDevice(ULONG address 0x%X)\n", address);
-#endif
-    
-    *(UWORD *)(address + FLASH_UNLOCK_ADDR_1) = FLASH_UNLOCK_DATA_1;
-#ifndef NDEBUG
-    printf("FLOW: FLASH_UNLOCK_ADDR_1 0x%X, FLASH_UNLOCK_DATA_1 0x%X\n", (address + FLASH_UNLOCK_ADDR_1), FLASH_UNLOCK_DATA_1);
-#endif
-    *(UWORD *)(address + FLASH_UNLOCK_ADDR_2) = FLASH_UNLOCK_DATA_2;
-#ifndef NDEBUG
-    printf("FLOW: FLASH_UNLOCK_ADDR_2 0x%X, FLASH_UNLOCK_DATA_2 0x%X\n", (address + FLASH_UNLOCK_ADDR_2), FLASH_UNLOCK_DATA_2);
-#endif
-
-    flashCommandStatus = flashOK;
-    
-#ifndef NDEBUG
-    printf("EXIT: unlockFlashDevice(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);    
-}
-
-/*****************************************************************************/
-/* Function:    readManufactureID()                                          */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address, UWORD * pManufactureID                        */
-/* Description: Reads manufacturer ID from flash device                      */
-/*****************************************************************************/
-tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-#ifndef NDEBUG
-    printf("ENTRY: readManufactureID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pManufactureID);
-#endif
-    
-    flashCommandStatus = unlockFlashDevice(address);
-    
-    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
-#ifndef NDEBUG
-    printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
-#endif
-    *pManufactureID = *(UWORD *)(address + FLASH_MANUFACTOR_ID);
-#ifndef NDEBUG
-    printf("FLOW: FLASH_MANUFACTOR_ID 0x%X, *pManufactureID 0x%X\n", (address + FLASH_MANUFACTOR_ID), *pManufactureID);
-#endif
-    flashCommandStatus = resetFlashDevice(address);
-
-#ifndef NDEBUG
-    printf("EXIT: readManufactureID(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    readDeviceID()                                               */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address, UWORD * pDeviceID                             */
-/* Description: Reads device ID from flash device                            */
-/*****************************************************************************/
-tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-#ifndef NDEBUG
-    printf("ENTRY: readDeviceID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pDeviceID);
-#endif
-    
-    flashCommandStatus = unlockFlashDevice(address);
-    
-    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
-#ifndef NDEBUG
-    printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
-#endif
-    *pDeviceID = *(UWORD *)(address + FLASH_DEVICE_ID);
-#ifndef NDEBUG
-    printf("FLOW: FLASH_DEVICE_ID 0x%X, *pDeviceID 0x%X\n", (address + FLASH_DEVICE_ID), *pDeviceID);
-#endif
-    flashCommandStatus = resetFlashDevice(address);
-    
-#ifndef NDEBUG
-    printf("EXIT: readDeviceID(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    resetFlashDevice()                                           */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address                                                */
-/* Description: Sends reset command sequence to flash device                 */
-/*****************************************************************************/
-tFlashCommandStatus resetFlashDevice(ULONG address)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-#ifndef NDEBUG
-    printf("ENTRY: resetFlashDevice(ULONG address 0x%X)\n", address);
-#endif
-    
-    *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;    
-
-    flashCommandStatus = flashOK;
-
-#ifndef NDEBUG
-    printf("EXIT: resetFlashDevice(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    eraseFlashSector()                                           */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address, UBYTE sectorNumber                            */
-/* Description: Erases a specific sector number from flash device            */
-/*****************************************************************************/
-tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-#ifndef NDEBUG
-    printf("ENTRY: eraseFlashSector(ULONG address 0x%X, UBYTE sectorNumber 0x%X)\n", address, sectorNumber);
-#endif
-
-    if (sectorNumber < MAX_SECTORS)
-    {
-        if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
-        {
-            *(ULONG *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;    
-#ifndef NDEBUG
-            printf("FLOW: FLASH_ERASE_ADDR_1 0x%X, FLASH_ERASE_DATA_1 0x%X\n", (address + FLASH_ERASE_ADDR_1), FLASH_ERASE_DATA_1);
-#endif
-            
-            if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
-            {
-                *(ULONG *)(address + (sectorNumber << 16)) = FLASH_SECTOR_DATA_1;
-#ifndef NDEBUG
-                printf("FLOW: Sector Address 0x%X, FLASH_SECTOR_DATA_1 0x%X\n", address + (sectorNumber << 16), FLASH_SECTOR_DATA_1);
-#endif
-                flashCommandStatus = flashOK;                
-            }
-        }
-    }
-    else
-    {
-        flashCommandStatus = flashEraseError;
-    }
-    
-#ifndef NDEBUG
-    printf("EXIT: eraseFlashSector(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    writeFlashByte()                                             */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address, UWORD data                                    */
-/* Description: Writes a specific word to the flash device                   */
-/*****************************************************************************/
-tFlashCommandStatus writeFlashByte(ULONG address, UWORD data)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-
-    flashCommandStatus = unlockFlashDevice(address);
-    
-    *(UWORD *)(address + FLASH_PROGRAM_ADDR_1) = FLASH_PROGRAM_DATA_1;    
-    *(UWORD *)(address) = data;
-    
-    return (flashCommandStatus);
-}
-
-/*****************************************************************************/
-/* Function:    programFlash()                                               */
-/* Returns:     tFlashCommandStatus                                          */
-/* Parameters:  ULONG address, ULONG size, UWORD * pData                     */
-/* Description: Writes a specific array of data the flash device             */
-/*****************************************************************************/
-tFlashCommandStatus programFlash(ULONG address, ULONG size, UWORD * pData)
-{
-    tFlashCommandStatus flashCommandStatus = flashIdle;
-    ULONG currentWord = 0;
-    
-    do {
-
-        if (flashOK == writeFlashByte((address + currentWord), pData[currentWord]))
-        {
-            if (flashOK == checkFlashStatus(address + currentWord))
-            {
-                currentWord++;
-                currentWord++;
-                continue;
-            }
-        }
-        
-        resetFlashDevice(address);
-        flashCommandStatus = flashProgramError;
-        break;            
-                
-    } while (currentWord < size);
-    
-    return (flashCommandStatus);
-}
-
-
-void hexDump (char *desc, void *addr, int len) {
-    
-    // https://stackoverflow.com/questions/7775991/how-to-get-hexdump-of-a-structure-data
-    
-    int i;
-    unsigned char buff[17];
-    unsigned char *pc = (unsigned char*)addr;
-
-    // Output description if given.
-    if (desc != NULL)
-        printf ("%s:\n", desc);
-
-    if (len == 0) {
-        printf("  ZERO LENGTH\n");
-        return;
-    }
-    if (len < 0) {
-        printf("  NEGATIVE LENGTH: %i\n",len);
-        return;
-    }
-
-    // Process every byte in the data.
-    for (i = 0; i < len; i++) {
-        // Multiple of 16 means new line (with line offset).
-
-        if ((i % 16) == 0) {
-            // Just don't print ASCII for the zeroth line.
-            if (i != 0)
-                printf ("  %s\n", buff);
-
-            // Output the offset.
-            printf ("  %04x ", i);
-        }
-
-        // Now the hex code for the specific character.
-        printf (" %02x", pc[i]);
-
-        // And store a printable ASCII character for later.
-        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
-            buff[i % 16] = '.';
-        else
-            buff[i % 16] = pc[i];
-        buff[(i % 16) + 1] = '\0';
-    }
-
-    // Pad out last line if not exactly 16 characters.
-    while ((i % 16) != 0) {
-        printf ("   ");
-        i++;
-    }
-
-    // And print the final ASCII bit.
-    printf ("  %s\n", buff);
-}
-
 
 /*****************************************************************************/
 /* Main **********************************************************************/
@@ -424,9 +60,14 @@ int main(int argc, char **argv)
     UWORD flashManufactureID, flashDeviceID;
 
     /* Check if application has been started with correct parameters */
-    if (argc != 2)
+    if (argc <= 1)
     {
-        printf("usage: FlashKickstart <filename>\n");
+        printf("usage: FlashKickstart <option> <filename>\n");
+        printf(" -i\tFLASH CHIP INFO\n");
+        printf(" -k\tKICKSTART IMAGE INFO\n");
+        printf(" -e\tERASE\n");
+        printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
+        printf(" -p\tPROGRAM <filename>\n");
         exit(RETURN_FAIL);
     }
     
@@ -474,125 +115,334 @@ int main(int argc, char **argv)
         printf("FLASH Kickstart Hardware identified with configuration:\n");
         printf("cd_BoardAddr = 0x%X\n", myCD->cd_BoardAddr);
         printf("cd_BoardSize = 0x%X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
-        printf("Identyfing FLASH Devices:\n");
-        
-        /* Print out some details now about the Flash Chips - Manufacturer ID */
-        /*
-        if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
-        {
-            printf("Manufacturing ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
-        }
-        else
-        {
-            printf("Failed to identify FLASH Manufacturer ID\n");
-            CloseLibrary(IntuitionBase);
-            CloseLibrary(ExpansionBase);
-            exit(RETURN_FAIL);            
-        }
-        */
-        
-        /* Print out some details now about the Flash Chips - Device ID */
-        /*
-        if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
-        {
-            printf("Device ID: Hign Device 0x%X, Low Device 0x%X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
-        }
-        else
-        {
-            printf("Failed to identify FLASH Device ID\n");
-            CloseLibrary(IntuitionBase);
-            CloseLibrary(ExpansionBase);
-            exit(RETURN_FAIL);            
-        }
-        */
     }
+    
+    while ((argc > 1) && (argv[1][0] == '-'))
+    {
+        switch (argv[1][1])
+        {
+            case 'i':
+            {
+#ifndef NDEBUG
+                printf("MAIN: FLASH CHIP INFO Handler\n");
+#endif
+                if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
+                {
+                    printf("Manufacturing ID: High Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
+                }
+                else
+                {
+                    printf("Failed to identify FLASH Manufacturer ID\n");
+                }
+
+                if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
+                {
+                    printf("Device ID: High Device 0x%X, Low Device 0x%X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
+                }
+                else
+                {
+                    printf("Failed to identify FLASH Device ID\n");
+                }
+            }
+            break;
+            
+            case 'k':
+            {
+#ifndef NDEBUG
+                printf("MAIN: KICKSTART IMAGE INFO Handler\n");
+#endif
+                if ((argc > 2) && argv[2])
+                {
+                    /* Check file size and other credentials */
+                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    
+                    if (0L != fileHandle)
+                    {
+                        Examine(fileHandle, &myFIB);
+#ifndef NDEBUG
+                        printf("MAIN: KICKSTART IMAGE INFO Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
+#endif
+                        UnLock(fileHandle);                    
+                    }
+                    else
+                    {
+                        printf("Failed to open kickstart image: %s\n", argv[2]);
+                    }
+                }
+                else
+                {
+                    printf("No Kickstart image specified\n");
+                }
+            }
+            break;
+            
+            case 'e':
+            {
+#ifndef NDEBUG
+                printf("MAIN: ERASE Handler\n");
+#endif
+#ifndef NDEBUG
+                printf("MAIN: ERASE Handler: Sending erase complete flash command\n");
+#endif
+                if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
+                {
+                    tFlashCommandStatus flashCommandStatus;
+                    ULONG breakCount = 0;
+                    UBYTE progressIndicatorIndex = 0;
+                    
+                    do {
+                        flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+                        breakCount++;
+
+                        printf("Erase FLASH ... %c\r", progressIndicator[progressIndicatorIndex++]);
+                        
+                        if (progressIndicatorIndex >= 4)
+                            progressIndicatorIndex = 0;
+                        
+                    } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+                                    
+                    if (flashOK == flashCommandStatus)
+                    {
+                        printf("\nFLASH device erased OK\n");
+                    }
+                    else
+                    {
+                        printf("\nFLASH device erased ERROR\n");
+                    }
+                }
+                else
+                {
+                    printf("FLASH device erased COMMAND NOT ACCEPTED\n");
+                }
+            }
+            break;
+            
+            case 'd':
+            {
+                char *nextParam;
+                ULONG startAddress = 0xF80000;
+                UWORD length = 64;
+
+#ifndef NDEBUG
+                printf("MAIN: DUMP Handler <start address [default F80000]> <length [default 64]>\n");
+#endif
+                
+                if ((argc > 2) && argv[2])
+                {
+                    startAddress = strtoul(argv[2], &nextParam, 16);
+#ifndef NDEBUG
+                    printf("MAIN: DUMP Handler <start address [default F80000] 0x%X>\n", startAddress);
+#endif          
+                }
+                
+                if ((argc > 3) && argv[3])
+                {
+                    length = strtoul(argv[3], &nextParam, 16);
+#ifndef NDEBUG
+                    printf("MAIN: DUMP Handler <length [default 64] 0x%X>\n", length);
+#endif          
+                }
+                
+                hexDump("Memory DUMP", (APTR)startAddress, length);                
+            }
+            break;
+            
+            case 'p':
+            {
+                if ((argc > 2) && argv[2])
+                {
+                    /* Check file size and other credentials */
+                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    
+                    if (0L != fileHandle)
+                    {
+                        Examine(fileHandle, &myFIB);
+#ifndef NDEBUG
+                        printf("MAIN: FLASH program Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
+#endif
+                        UnLock(fileHandle);   
+
+                        fileHandle = Open(argv[2], MODE_OLDFILE);
+
+                        if (0L != fileHandle)
+                        {                        
+                            APTR memoryHandle = AllocMem(0x80000, 0);
+
+                            if (memoryHandle)
+                            {
+                                tFlashCommandStatus flashCommandStatus = flashIdle;
+                                ULONG currentWordWritten = 0;
+                                ULONG totalBytesReadFromFile = 0;
+                                ULONG breakCount = 0;
+                                UBYTE progressIndicatorIndex = 0;
+                                
+                                totalBytesReadFromFile = Read(fileHandle, memoryHandle, 0x80000);
+                                
+#ifndef NDEBUG
+                                printf("MAIN: FLASH program Handler: Read %d byes\n", totalBytesReadFromFile);
+#endif                                
+                                
+                                do {
+                                    writeFlashWord((ULONG)myCD->cd_BoardAddr, currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
+                                    
+#ifndef NDEBUG
+                                    printf("MAIN: FLASH program Handler: Current index: %d, wordToWrite: %x\n", currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
+#endif                                
+
+                                    breakCount = 0;
+                                    
+                                    do {
+                                        flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr + (currentWordWritten << 1));
+                                        breakCount++;
+
+                                    } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+                                    
+                                    
+                                    if (breakCount == LOOP_TIMEOUT)
+                                    {
+                                        FreeMem(memoryHandle, 0x80000);
+                                        Close(fileHandle);
+                                        printf("Failed to program word %d:%d\n", currentWordWritten, (ULONG)myFIB.fib_Size);
+                                        break;
+                                    }
+                                                                      
+                                    if (((currentWordWritten << 1) % 4096) == 0)
+                                    {
+                                        /* Move progress indicator after each 64K is written. */
+                                        printf("Programming FLASH ... %c\r", progressIndicator[progressIndicatorIndex++]);
+                                        
+                                        if (progressIndicatorIndex >= 4)
+                                            progressIndicatorIndex = 0;
+                                    }
+                                    
+                                    currentWordWritten += 1;
+
+                                } while (currentWordWritten < (totalBytesReadFromFile >> 1));
+
+                                FreeMem(memoryHandle, 0x80000);
+                                Close(fileHandle);
+                                printf("FLASH programmed OK\n");                                   
+                            }
+                            else
+                            {
+                                Close(fileHandle);
+                                printf("Failed to allocate memory %d bytes required\n", (ULONG)myFIB.fib_Size);                                
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("Failed to open kickstart image: %s\n", argv[2]);
+                    }
+                }
+                else
+                {
+                    printf("No Kickstart image specified\n");
+                }
+            }
+            break;
+                
+            default:
+            {
+                printf("Wrong argument: %s\n", argv[1]);
+            }
+            break;
+        }
+        
+        ++argv;
+        --argc;
+    }
+
+    
+   
+        
     
     /* Check file size and other credentials */
-    fileHandle = Lock(argv[1], MODE_OLDFILE);
-    
-    if (0L != fileHandle)
-    {
-        Examine(fileHandle, &myFIB);
-#ifndef NDEBUG
-        printf("MAIN: Kickstart image [%s], lockHandle 0x%X, fileSize %d\n", argv[1], fileHandle, (ULONG)myFIB.fib_Size);
-#endif
-        UnLock(fileHandle);
-    }
-        
-    fileHandle = Open(argv[1], MODE_OLDFILE);
-
-    if (0L != fileHandle)
-    {
-        /*
-        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 0);
-        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-
-        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 1);
-        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-
-        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 2);
-        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-
-        eraseFlashSector((ULONG)myCD->cd_BoardAddr, 3);
-        checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-        */
-        
-        APTR memoryHandle = AllocMem(0x40000, 0);
-        ULONG bytesRead = 0;
-        
-        if (memoryHandle)
-        {
-            ULONG brdAddress = (ULONG)myCD->cd_BoardAddr;
-            
-            bytesRead = Read(fileHandle, memoryHandle, 0x40000);
-            printf("Read Bytes [%d]\n", bytesRead);
-
-            if (myFIB.fib_Size == 0x40000)
-            {
-                // As A18 will be high when the FLASH KICKSTART is active (due to prototype HW) copy 4 blocks to fill RAM.
-                
-                CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
-            }
-            
-            if (myFIB.fib_Size == 0x80000)
-            {
-                // First 256K
-                CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
-                
-                Seek(fileHandle, 0x40000, OFFSET_BEGINNING);
-                Read(fileHandle, memoryHandle, 0x40000);
-            
-                // Second 256K
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
-                CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
-            }
-
-            FreeMem(memoryHandle, 0x40000);
-
-            hexDump("Flash KS Header", (APTR)brdAddress, 64);
-            hexDump("Flash KS Header", (APTR)(brdAddress + 0x40000), 64);
-            hexDump("Flash KS Header", (APTR)(brdAddress + 0x80000), 64);
-            hexDump("Flash KS Header", (APTR)(brdAddress + 0xC0000), 64);
-
-        }
-        
-        // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
-        // TODO: read kickstart image
-        // TODO: erase flash() with progress indicator
-        // TODO: write flash() with progress indicator
-        // TODO: close fileHandle
-        // TODO: print nice success message  
-
-        Close(fileHandle);
-    }
-    else
-    {
-        printf("Could not open specific Kickstart image [%s]\n", argv[1]);
-    }
+//    fileHandle = Lock(argv[1], MODE_OLDFILE);
+//  
+//  if (0L != fileHandle)
+//  {
+//      Examine(fileHandle, &myFIB);
+//#ifndef NDEBUG
+//      printf("MAIN: Kickstart image [%s], lockHandle 0x%X, fileSize %d\n", argv[1], fileHandle, (ULONG)myFIB.fib_Size);
+//#endif
+//      UnLock(fileHandle);
+//  }
+//      
+//  fileHandle = Open(argv[1], MODE_OLDFILE);
+//
+//  if (0L != fileHandle)
+//  {
+//      /*
+//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 0);
+//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+//
+//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 1);
+//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+//
+//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 2);
+//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+//
+//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 3);
+//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+//      */
+//      
+//      APTR memoryHandle = AllocMem(0x40000, 0);
+//      ULONG bytesRead = 0;
+//      
+//      if (memoryHandle)
+//      {
+//          ULONG brdAddress = (ULONG)myCD->cd_BoardAddr;
+//          
+//          bytesRead = Read(fileHandle, memoryHandle, 0x40000);
+//          printf("Read Bytes [%d]\n", bytesRead);
+//
+//          if (myFIB.fib_Size == 0x40000)
+//          {
+//              // As A18 will be high when the FLASH KICKSTART is active (due to prototype HW) copy 4 blocks to fill RAM.
+//              
+//              CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
+//          }
+//          
+//          if (myFIB.fib_Size == 0x80000)
+//          {
+//              // First 256K
+//              CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
+//              
+//              Seek(fileHandle, 0x40000, OFFSET_BEGINNING);
+//              Read(fileHandle, memoryHandle, 0x40000);
+//          
+//              // Second 256K
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
+//              CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
+//          }
+//
+//          FreeMem(memoryHandle, 0x40000);
+//
+//          hexDump("Flash KS Header", (APTR)brdAddress, 64);
+//          hexDump("Flash KS Header", (APTR)(brdAddress + 0x40000), 64);
+//          hexDump("Flash KS Header", (APTR)(brdAddress + 0x80000), 64);
+//          hexDump("Flash KS Header", (APTR)(brdAddress + 0xC0000), 64);
+//
+//      }
+//      
+//      // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
+//      // TODO: read kickstart image
+//      // TODO: erase flash() with progress indicator
+//      // TODO: write flash() with progress indicator
+//      // TODO: close fileHandle
+//      // TODO: print nice success message  
+//
+//      Close(fileHandle);
+//  }
+//  else
+//  {
+//      printf("Could not open specific Kickstart image [%s]\n", argv[1]);
+//  }
 
     CloseLibrary(IntuitionBase);
     CloseLibrary(ExpansionBase);
