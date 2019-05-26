@@ -31,7 +31,7 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
     ULONG totalLoopCount;
-    UWORD /*currentWord, */previousWord;
+    UWORD previousWord;
 
     flashCommandStatus = flashBusy;
     
