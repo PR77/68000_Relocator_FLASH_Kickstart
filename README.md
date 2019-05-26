@@ -75,6 +75,5 @@ In principle the operation is fairly simple. A CPLD is used to switch between th
 ### Known Issues And Pending Items
 As this design is still in-the-making, the following items are pending:
 
-1. Finalise the software to write to the Flash.
+1. Software written however a bug is present where the image written to Flash is corrupt. Will implement a -v(erify) function to check. 
 2. Support for ROMs based at address 0xF00000.
-3. Test with different ROMs.
