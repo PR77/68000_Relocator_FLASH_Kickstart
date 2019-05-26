@@ -35,59 +35,19 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
 
     flashCommandStatus = flashBusy;
     
+#ifndef NDEBUG
+    printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
+#endif
     previousWord = *(UWORD *)address;
     
     if (0 == ((previousWord ^ *(UWORD *)address) & TOGGLE_STATUS))
     {
         flashCommandStatus = flashOK;
     }
-
-    /*
-    UBYTE loopDelay;
-    
-#ifndef NDEBUG
-    printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
-#endif
-    currentWord = *(UWORD *)address;
-
-    loopDelay = 0;
-    totalLoopCount = 0;
-    
-    do {
-        loopDelay++;
-    } while (loopDelay < 100);
-    
-    flashCommandStatus = flashBusy;
-
-    do {
-        
-        previousWord = currentWord;
-        currentWord = *(UWORD *)address;
-        
-#ifndef NDEBUG
-        printf("FLOW: previousWord 0x%X, currentWord 0x%X)\n", previousWord, currentWord);
-#endif
-
-        if (0 == ((previousWord ^ currentWord) & TOGGLE_STATUS))
-        {
-            flashCommandStatus = flashOK;
-        }
-
-        loopDelay = 0;
-        do {
-            loopDelay++;
-        } while (loopDelay < 100);
-        
-        if (totalLoopCount++ > 65536)
-        {
-            flashCommandStatus = flashStatusError;         
-        }
-    } while ((flashBusy == flashCommandStatus) || (flashStatusError == flashCommandStatus));
     
 #ifndef NDEBUG
     printf("EXIT: checkFlashStatus(flashCommandStatus 0x%X)\n", flashCommandStatus);
-#endif  
-    */
+#endif
     return (flashCommandStatus);
 }
 
