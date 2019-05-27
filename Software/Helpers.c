@@ -25,6 +25,10 @@
 /* Globals *******************************************************************/
 /*****************************************************************************/
 
+static BPTR fileHandle;
+static APTR memoryHandle;
+static ULONG allocatedMemorySize;
+
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
 /*****************************************************************************/
@@ -32,6 +36,115 @@
 /*****************************************************************************/
 /* Code **********************************************************************/
 /*****************************************************************************/
+
+/*****************************************************************************/
+/* Function:    readFileIntoMemoryHandler()                                  */
+/* Returns:     tReadFileHandler                                             */
+/* Parameters:  None                                                         */
+/* Description: Open selected file if exists and reads into allocated memory */
+/*****************************************************************************/
+tReadFileHandler readFileIntoMemoryHandler(char *fileName)
+{
+    
+}
+
+/*****************************************************************************/
+/* Function:    freeFileHandler()                                            */
+/* Returns:     tReadFileHandler                                             */
+/* Parameters:  None                                                         */
+/* Description: Closes open file handle and deallocates storage memory       */
+/*****************************************************************************/
+tReadFileHandler freeFileHandler(void)
+{
+    tReadFileHandler readFileHandler = readFileIdle;
+    
+#ifndef NDEBUG
+    printf("ENTRY: freeFileHandler(void)\n");
+#endif    
+    
+    if (0L != fileHandle)
+    {
+#ifndef NDEBUG
+        printf("FLOW: freeFileHandler: File Open(fileHandle 0x%X)\n", fileHandle);
+#endif
+        Close(fileHandle);
+#ifndef NDEBUG
+        printf("FLOW: freeFileHandler: File Closed(fileHandle 0x%X)\n", fileHandle);
+#endif
+    }
+   
+    if (0L != memoryHandle)
+    {
+#ifndef NDEBUG
+        printf("FLOW: freeFileHandler: Memory Allocated(memoryHandle 0x%X)\n", memoryHandle);
+#endif
+        Close(fileHandle);
+#ifndef NDEBUG
+        printf("FLOW: freeFileHandler: Memory Deallocated(memoryHandle 0x%X)\n", memoryHandle);
+#endif
+        FreeMem(memoryHandle, allocatedMemorySize);
+    }
+
+    readFileHandler = readFileOK;
+#ifndef NDEBUG
+    printf("EXIT: freeFileHandler(readFileHandler 0x%X)\n", readFileHandler);
+#endif    
+    return (readFileHandler);
+}
+
+/*****************************************************************************/
+/* Function:    getFileSize()                                                */
+/* Returns:     tReadFileHandler                                             */
+/* Parameters:  char *fileName, ULONG * pFileSize                            */
+/* Description: Gets the size, in bytes, of the filename passed              */
+/*****************************************************************************/
+tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
+{
+    struct FileInfoBlock FIB;
+    tReadFileHandler readFileHandler = readFileIdle;
+
+#ifndef NDEBUG
+    printf("ENTRY: getFileSize(char *fileName %s, ULONG * pFileSize 0x%X)\n", fileName, pFileSize);
+#endif
+
+    if (0L != fileName)
+    {
+         fileHandle = Lock(fileName, MODE_OLDFILE);
+#ifndef NDEBUG
+        printf("FLOW: getFileSize: Locking fileHandle 0x%X\n", fileHandle);
+#endif 
+
+        if (0L != fileHandle)
+        {
+            Examine(fileHandle, &FIB);
+
+            UnLock(fileHandle);
+
+#ifndef NDEBUG
+            printf("FLOW: getFileSize: Unlocking fileHandle 0x%X\n", fileHandle);
+#endif
+            readFileHandler = readFileOK;
+        }
+        else
+        {
+            readFileHandler = readFileNotFound;
+        }
+    }
+    else
+    {
+        readFileHandler = readFileNoFileSpecified;
+    }
+    
+    if (readFileOK == readFileHandler)
+        *pFileSize = (ULONG)FIB.fib_Size;
+    else
+        *pFileSize = 0;
+        
+#ifndef NDEBUG
+    printf("EXIT: freeFileHandler(readFileHandler 0x%X)\n", readFileHandler);
+#endif    
+    return (readFileHandler);
+}
 
 /*****************************************************************************/
 /* Function:    hexDump()                                                    */

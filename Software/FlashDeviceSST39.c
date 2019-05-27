@@ -40,7 +40,7 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
 #endif
     previousWord = *(UWORD *)address;
     
-    if (0 == ((previousWord ^ *(UWORD *)address) & TOGGLE_STATUS))
+    if (0 == ((previousWord ^ *(UWORD *)address) && TOGGLE_STATUS))
     {
         flashCommandStatus = flashOK;
     }

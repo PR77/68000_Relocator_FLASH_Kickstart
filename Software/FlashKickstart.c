@@ -57,7 +57,6 @@ int main(int argc, char **argv)
     struct ConfigDev *myCD = NULL;
     struct FileInfoBlock myFIB;
     BPTR fileHandle = 0L;
-    UWORD flashManufactureID, flashDeviceID;
 
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
@@ -68,6 +67,7 @@ int main(int argc, char **argv)
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
         printf(" -p\tPROGRAM <filename>\n");
+        printf(" -v\tVERIFY <filename>\n")
         exit(RETURN_FAIL);
     }
     
@@ -123,9 +123,8 @@ int main(int argc, char **argv)
         {
             case 'i':
             {
-#ifndef NDEBUG
-                printf("MAIN: FLASH CHIP INFO Handler\n");
-#endif
+                UWORD flashManufactureID, flashDeviceID;
+                
                 if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
                 {
                     printf("Manufacturing ID: High Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
@@ -148,25 +147,24 @@ int main(int argc, char **argv)
             
             case 'k':
             {
-#ifndef NDEBUG
-                printf("MAIN: KICKSTART IMAGE INFO Handler\n");
-#endif
                 if ((argc > 2) && argv[2])
                 {
-                    /* Check file size and other credentials */
-                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    ULONG fileSize;
+                    tReadFileHandler readFileDetails;
+
+                    readFileDetails = getFileSize(argv[2], &fileSize);
                     
-                    if (0L != fileHandle)
+                    if (readFileOK == readFileDetails)
                     {
-                        Examine(fileHandle, &myFIB);
-#ifndef NDEBUG
-                        printf("MAIN: KICKSTART IMAGE INFO Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
-#endif
-                        UnLock(fileHandle);                    
+                        printf("Kickstart image file <%s>, size <%d bytes>\n", argv[2], fileSize)
                     }
-                    else
+                    else if (readFileNotFound == readFileDetails)
                     {
                         printf("Failed to open kickstart image: %s\n", argv[2]);
+                    }
+                    else if (readFileNoFileSpecified == readFileDetails)
+                    {
+                        printf("Unhandled error in getFileSiye()\n");    
                     }
                 }
                 else
@@ -178,12 +176,6 @@ int main(int argc, char **argv)
             
             case 'e':
             {
-#ifndef NDEBUG
-                printf("MAIN: ERASE Handler\n");
-#endif
-#ifndef NDEBUG
-                printf("MAIN: ERASE Handler: Sending erase complete flash command\n");
-#endif
                 if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
                 {
                     tFlashCommandStatus flashCommandStatus;
@@ -226,7 +218,6 @@ int main(int argc, char **argv)
 #ifndef NDEBUG
                 printf("MAIN: DUMP Handler <start address [default F80000]> <length [default 64]>\n");
 #endif
-                
                 if ((argc > 2) && argv[2])
                 {
                     startAddress = strtoul(argv[2], &nextParam, 16);
@@ -274,21 +265,22 @@ int main(int argc, char **argv)
                                 ULONG currentWordWritten = 0;
                                 ULONG totalBytesReadFromFile = 0;
                                 ULONG breakCount = 0;
+                                UWORD progressIndicatorUpdateCounter = 0;
                                 UBYTE progressIndicatorIndex = 0;
                                 
                                 totalBytesReadFromFile = Read(fileHandle, memoryHandle, 0x80000);
                                 
+                                // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
+                                
 #ifndef NDEBUG
                                 printf("MAIN: FLASH program Handler: Read %d byes\n", totalBytesReadFromFile);
-#endif                                
-                                
+#endif                                                                
                                 do {
                                     writeFlashWord((ULONG)myCD->cd_BoardAddr, currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
                                     
 #ifndef NDEBUG
                                     printf("MAIN: FLASH program Handler: Current index: %d, wordToWrite: %x\n", currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
 #endif                                
-
                                     breakCount = 0;
                                     
                                     do {
@@ -296,7 +288,6 @@ int main(int argc, char **argv)
                                         breakCount++;
 
                                     } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
-                                    
                                     
                                     if (breakCount == LOOP_TIMEOUT)
                                     {
@@ -306,17 +297,19 @@ int main(int argc, char **argv)
                                         break;
                                     }
                                                                       
-                                    if (((currentWordWritten << 1) % 4096) == 0)
+                                    if (progressIndicatorUpdateCounter == 0)
                                     {
-                                        /* Move progress indicator after each 64K is written. */
-                                        printf("Programming FLASH ... %c\r", progressIndicator[progressIndicatorIndex++]);
+                                        printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);
                                         
                                         if (progressIndicatorIndex >= 4)
                                             progressIndicatorIndex = 0;
                                     }
-                                    
-                                    currentWordWritten += 1;
 
+                                    if (progressIndicatorUpdateCounter++ > 0x4000)
+                                    /* Move progress indicator after each 32K is written. */
+                                        progressIndicatorUpdateCounter = 0;
+                                        
+                                    currentWordWritten += 1;
                                 } while (currentWordWritten < (totalBytesReadFromFile >> 1));
 
                                 FreeMem(memoryHandle, 0x80000);
@@ -341,6 +334,69 @@ int main(int argc, char **argv)
                 }
             }
             break;
+            
+            case 'v':
+            {
+                if ((argc > 2) && argv[2])
+                {
+                    /* Check file size and other credentials */
+                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    
+                    if (0L != fileHandle)
+                    {
+                        Examine(fileHandle, &myFIB);
+#ifndef NDEBUG
+                        printf("MAIN: VERIFY image Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
+#endif
+                        UnLock(fileHandle);   
+
+                        fileHandle = Open(argv[2], MODE_OLDFILE);
+
+                        if (0L != fileHandle)
+                        {                        
+                            APTR memoryHandle = AllocMem(0x80000, 0);
+
+                            if (memoryHandle)
+                            {
+                                ULONG currentWordIndex = 0;
+                                ULONG totalBytesReadFromFile = 0;
+                                UWORD currentMemoryWord;
+                                UWORD currentFlashWord;
+                                
+                                totalBytesReadFromFile = Read(fileHandle, memoryHandle, 0x80000);
+                                                               
+                                do {
+                                    currentMemoryWord = ((UWORD *)memoryHandle)[currentWordIndex];
+                                    currentFlashWord = ((UWORD *)myCD->cd_BoardAddr)[currentWordIndex];
+                                    
+                                    if (currentMemoryWord != currentFlashWord)
+                                        printf("VERIFY ERROR: Address: 0x%X, Memory: 0x%X, FLASH: 0x%X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
+                                    
+                                    currentWordIndex += 1;
+
+                                } while (currentWordIndex < (totalBytesReadFromFile >> 1));
+
+                                FreeMem(memoryHandle, 0x80000);
+                                Close(fileHandle);
+                            }
+                            else
+                            {
+                                Close(fileHandle);
+                                printf("Failed to allocate memory %d bytes required\n", (ULONG)myFIB.fib_Size);                                
+                            }
+                        }
+                    }
+                    else
+                    {
+                        printf("Failed to open kickstart image: %s\n", argv[2]);
+                    }
+                }
+                else
+                {
+                    printf("No Kickstart image specified\n");
+                }
+            }
+            break;            
                 
             default:
             {
@@ -352,98 +408,7 @@ int main(int argc, char **argv)
         ++argv;
         --argc;
     }
-
-    
-   
-        
-    
-    /* Check file size and other credentials */
-//    fileHandle = Lock(argv[1], MODE_OLDFILE);
-//  
-//  if (0L != fileHandle)
-//  {
-//      Examine(fileHandle, &myFIB);
-//#ifndef NDEBUG
-//      printf("MAIN: Kickstart image [%s], lockHandle 0x%X, fileSize %d\n", argv[1], fileHandle, (ULONG)myFIB.fib_Size);
-//#endif
-//      UnLock(fileHandle);
-//  }
-//      
-//  fileHandle = Open(argv[1], MODE_OLDFILE);
-//
-//  if (0L != fileHandle)
-//  {
-//      /*
-//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 0);
-//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-//
-//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 1);
-//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-//
-//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 2);
-//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-//
-//      eraseFlashSector((ULONG)myCD->cd_BoardAddr, 3);
-//      checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-//      */
-//      
-//      APTR memoryHandle = AllocMem(0x40000, 0);
-//      ULONG bytesRead = 0;
-//      
-//      if (memoryHandle)
-//      {
-//          ULONG brdAddress = (ULONG)myCD->cd_BoardAddr;
-//          
-//          bytesRead = Read(fileHandle, memoryHandle, 0x40000);
-//          printf("Read Bytes [%d]\n", bytesRead);
-//
-//          if (myFIB.fib_Size == 0x40000)
-//          {
-//              // As A18 will be high when the FLASH KICKSTART is active (due to prototype HW) copy 4 blocks to fill RAM.
-//              
-//              CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
-//          }
-//          
-//          if (myFIB.fib_Size == 0x80000)
-//          {
-//              // First 256K
-//              CopyMem(memoryHandle, (APTR)brdAddress, 0x40000);
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x80000), 0x40000);
-//              
-//              Seek(fileHandle, 0x40000, OFFSET_BEGINNING);
-//              Read(fileHandle, memoryHandle, 0x40000);
-//          
-//              // Second 256K
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0x40000), 0x40000);
-//              CopyMem(memoryHandle, (APTR)(brdAddress + 0xC0000), 0x40000);
-//          }
-//
-//          FreeMem(memoryHandle, 0x40000);
-//
-//          hexDump("Flash KS Header", (APTR)brdAddress, 64);
-//          hexDump("Flash KS Header", (APTR)(brdAddress + 0x40000), 64);
-//          hexDump("Flash KS Header", (APTR)(brdAddress + 0x80000), 64);
-//          hexDump("Flash KS Header", (APTR)(brdAddress + 0xC0000), 64);
-//
-//      }
-//      
-//      // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
-//      // TODO: read kickstart image
-//      // TODO: erase flash() with progress indicator
-//      // TODO: write flash() with progress indicator
-//      // TODO: close fileHandle
-//      // TODO: print nice success message  
-//
-//      Close(fileHandle);
-//  }
-//  else
-//  {
-//      printf("Could not open specific Kickstart image [%s]\n", argv[1]);
-//  }
-
+          
     CloseLibrary(IntuitionBase);
     CloseLibrary(ExpansionBase);
 }
