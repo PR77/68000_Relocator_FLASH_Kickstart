@@ -223,8 +223,8 @@ assign FLASH_WR[1:0] = (programmingSession == 1'b1 && RW == 1'b0 && FLASH_RANGE)
 // the Amiga Mothboard to allow GARY to perform the address decoding. However when not
 // in programming session, this means using the FLASH KS, then block /AS.
 
-assign MB_AS = (programmingSession == 1'b0 && (KICKSTART_RANGE || KICKSTART_RESET_RANGE)) ? 1'b1 : 
-               (AUTOCONFIG_RANGE) ? 1'b1 : CPU_AS;
+assign MB_AS = (programmingSession == 1'b0 && (KICKSTART_RANGE || KICKSTART_RESET_RANGE)) ? 1'b1 :
+               (programmingSession == 1'b1 && AUTOCONFIG_RANGE) ? 1'b1 : CPU_AS;
 
 /// --- /DTACK Override Control
 
@@ -252,7 +252,7 @@ always @(posedge MB_CLK or posedge CPU_AS) begin
 end
 
 assign MB_DTACK = (INTERNAL_CYCLE_DTACK_NORMAL && ((programmingSession == 1'b0) && (KICKSTART_RANGE || KICKSTART_RESET_RANGE))) ? 1'b0 :
-                  (INTERNAL_CYCLE_DTACK_SLOW && ((programmingSession == 1'b1) && AUTOCONFIG_RANGE)) ? 1'b0 :1'bZ;
+                  (INTERNAL_CYCLE_DTACK_SLOW && ((programmingSession == 1'b1) && AUTOCONFIG_RANGE)) ? 1'b0 : 1'bZ;
                   
 // --- Reset Duration Detection
 

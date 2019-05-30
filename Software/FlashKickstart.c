@@ -18,7 +18,7 @@
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
-#define LOOP_TIMEOUT    (ULONG)10000
+#define LOOP_TIMEOUT        (ULONG)10000
 
 /*****************************************************************************/
 /* Types *********************************************************************/
@@ -47,10 +47,6 @@ int main(int argc, char **argv);
 
 /*****************************************************************************/
 /* Code **********************************************************************/
-/*****************************************************************************/
-
-/*****************************************************************************/
-/* Main **********************************************************************/
 /*****************************************************************************/
 int main(int argc, char **argv)
 {
@@ -164,7 +160,7 @@ int main(int argc, char **argv)
                     }
                     else if (readFileNoFileSpecified == readFileDetails)
                     {
-                        printf("Unhandled error in getFileSiye()\n");    
+                        printf("Unhandled error in getFileSize()\n");    
                     }
                 }
                 else
@@ -176,6 +172,9 @@ int main(int argc, char **argv)
             
             case 'e':
             {
+                if (!DisplayAlert(RECOVERY_ALERT, eraseAlertMsg, 52))
+                    break;
+                
                 if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
                 {
                     tFlashCommandStatus flashCommandStatus;
@@ -215,23 +214,14 @@ int main(int argc, char **argv)
                 ULONG startAddress = 0xF80000;
                 UWORD length = 64;
 
-#ifndef NDEBUG
-                printf("MAIN: DUMP Handler <start address [default F80000]> <length [default 64]>\n");
-#endif
                 if ((argc > 2) && argv[2])
                 {
                     startAddress = strtoul(argv[2], &nextParam, 16);
-#ifndef NDEBUG
-                    printf("MAIN: DUMP Handler <start address [default F80000] 0x%X>\n", startAddress);
-#endif          
                 }
                 
                 if ((argc > 3) && argv[3])
                 {
                     length = strtoul(argv[3], &nextParam, 16);
-#ifndef NDEBUG
-                    printf("MAIN: DUMP Handler <length [default 64] 0x%X>\n", length);
-#endif          
                 }
                 
                 hexDump("Memory DUMP", (APTR)startAddress, length);                
@@ -242,90 +232,77 @@ int main(int argc, char **argv)
             {
                 if ((argc > 2) && argv[2])
                 {
-                    /* Check file size and other credentials */
-                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    APTR pBuffer;
+                    ULONG fileSize;
                     
-                    if (0L != fileHandle)
+                    tReadFileHandler readFileProgram = getFileSize(argv[2], &fileSize);
+                    
+                    if (readFileOK == readFileProgram)
                     {
-                        Examine(fileHandle, &myFIB);
-#ifndef NDEBUG
-                        printf("MAIN: FLASH program Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
-#endif
-                        UnLock(fileHandle);   
+                        readFileProgram = readFileIntoMemoryHandler(argv[2], fileSize, &pBuffer);
+                        
+                        if (readFileOK == readFileProgram)
+                        {
+                            tFlashCommandStatus flashCommandStatus = flashIdle;
+                            ULONG currentWordWritten = 0;
+                            ULONG breakCount = 0;
+                            UWORD progressIndicatorUpdateCounter = 0;
+                            UBYTE progressIndicatorIndex = 0;
+                            
+                            do {
+                                writeFlashWord((ULONG)myCD->cd_BoardAddr, currentWordWritten << 1, ((UWORD *)pBuffer)[currentWordWritten]);
 
-                        fileHandle = Open(argv[2], MODE_OLDFILE);
-
-                        if (0L != fileHandle)
-                        {                        
-                            APTR memoryHandle = AllocMem(0x80000, 0);
-
-                            if (memoryHandle)
-                            {
-                                tFlashCommandStatus flashCommandStatus = flashIdle;
-                                ULONG currentWordWritten = 0;
-                                ULONG totalBytesReadFromFile = 0;
-                                ULONG breakCount = 0;
-                                UWORD progressIndicatorUpdateCounter = 0;
-                                UBYTE progressIndicatorIndex = 0;
+                                breakCount = 0;
                                 
-                                totalBytesReadFromFile = Read(fileHandle, memoryHandle, 0x80000);
-                                
-                                // DisplayAlert(RECOVERY_ALERT, alertMsg, 52);
-                                
-#ifndef NDEBUG
-                                printf("MAIN: FLASH program Handler: Read %d byes\n", totalBytesReadFromFile);
-#endif                                                                
                                 do {
-                                    writeFlashWord((ULONG)myCD->cd_BoardAddr, currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
-                                    
-#ifndef NDEBUG
-                                    printf("MAIN: FLASH program Handler: Current index: %d, wordToWrite: %x\n", currentWordWritten << 1, ((UWORD *)memoryHandle)[currentWordWritten]);
-#endif                                
-                                    breakCount = 0;
-                                    
-                                    do {
-                                        flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr + (currentWordWritten << 1));
-                                        breakCount++;
+                                    flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr + (currentWordWritten << 1));
+                                    breakCount++;
 
-                                    } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+                                } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+                                
+                                if (breakCount == LOOP_TIMEOUT)
+                                {
+                                    printf("Failed to program word %d:%d\n", currentWordWritten, (ULONG)myFIB.fib_Size);
+                                    break;
+                                }
+                                                                  
+                                if (progressIndicatorUpdateCounter == 0)
+                                {
+                                    printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);
                                     
-                                    if (breakCount == LOOP_TIMEOUT)
-                                    {
-                                        FreeMem(memoryHandle, 0x80000);
-                                        Close(fileHandle);
-                                        printf("Failed to program word %d:%d\n", currentWordWritten, (ULONG)myFIB.fib_Size);
-                                        break;
-                                    }
-                                                                      
-                                    if (progressIndicatorUpdateCounter == 0)
-                                    {
-                                        printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);
-                                        
-                                        if (progressIndicatorIndex >= 4)
-                                            progressIndicatorIndex = 0;
-                                    }
+                                    if (progressIndicatorIndex >= 4)
+                                        progressIndicatorIndex = 0;
+                                }
 
-                                    if (progressIndicatorUpdateCounter++ > 0x4000)
-                                    /* Move progress indicator after each 32K is written. */
-                                        progressIndicatorUpdateCounter = 0;
-                                        
-                                    currentWordWritten += 1;
-                                } while (currentWordWritten < (totalBytesReadFromFile >> 1));
+                                if (progressIndicatorUpdateCounter++ > 0x4000)
+                                /* Move progress indicator after each 32K is written. */
+                                    progressIndicatorUpdateCounter = 0;
+                                    
+                                currentWordWritten += 1;
+                            } while (currentWordWritten < (fileSize >> 1));
 
-                                FreeMem(memoryHandle, 0x80000);
-                                Close(fileHandle);
-                                printf("FLASH programmed OK\n");                                   
-                            }
-                            else
-                            {
-                                Close(fileHandle);
-                                printf("Failed to allocate memory %d bytes required\n", (ULONG)myFIB.fib_Size);                                
-                            }
+                            freeFileHandler(fileSize);                            
+                        }
+                        else if (readFileNotFound == readFileProgram)
+                        {
+                            printf("Failed to open kickstart image: %s\n", argv[2]);
+                        }
+                        else if (readFileNoMemoryAllocated == readFileProgram)
+                        {
+                            printf("Failed to allocate memory for file: %s\n", argv[2]);
+                        }
+                        else if (readFileGeneralError == readFileProgram)
+                        {
+                            printf("Failed to read into memory file: %s\n\n");    
+                        }
+                        else
+                        {
+                            printf("Unhandled error in readFileIntoMemoryHandler()\n");    
                         }
                     }
                     else
                     {
-                        printf("Failed to open kickstart image: %s\n", argv[2]);
+                        printf("Unable to determine file size of %s\n", argv[2]);
                     }
                 }
                 else
@@ -339,68 +316,60 @@ int main(int argc, char **argv)
             {
                 if ((argc > 2) && argv[2])
                 {
-                    /* Check file size and other credentials */
-                    fileHandle = Lock(argv[2], MODE_OLDFILE);
+                    APTR pBuffer;
+                    ULONG fileSize;
                     
-                    if (0L != fileHandle)
+                    tReadFileHandler readFileVerify = getFileSize(argv[2], &fileSize);
+                    
+                    if (readFileOK == readFileVerify)
                     {
-                        Examine(fileHandle, &myFIB);
-#ifndef NDEBUG
-                        printf("MAIN: VERIFY image Handler: Kickstart image [%s], fileSize %d\n", argv[2], (ULONG)myFIB.fib_Size);
-#endif
-                        UnLock(fileHandle);   
+                        readFileVerify = readFileIntoMemoryHandler(argv[2], fileSize, &pBuffer);
+                        
+                        if (readFileOK == readFileVerify)
+                        {
+                            ULONG currentWordIndex = 0;
+                            UWORD currentMemoryWord;
+                            UWORD currentFlashWord;
 
-                        fileHandle = Open(argv[2], MODE_OLDFILE);
-
-                        if (0L != fileHandle)
-                        {                        
-                            APTR memoryHandle = AllocMem(0x80000, 0);
-
-                            if (memoryHandle)
-                            {
-                                ULONG currentWordIndex = 0;
-                                ULONG totalBytesReadFromFile = 0;
-                                UWORD currentMemoryWord;
-                                UWORD currentFlashWord;
+                            do {
+                                currentMemoryWord = ((UWORD *)pBuffer)[currentWordIndex];
+                                currentFlashWord = ((UWORD *)myCD->cd_BoardAddr)[currentWordIndex];
                                 
-                                totalBytesReadFromFile = Read(fileHandle, memoryHandle, 0x80000);
-                                                               
-                                do {
-                                    currentMemoryWord = ((UWORD *)memoryHandle)[currentWordIndex];
-                                    currentFlashWord = ((UWORD *)myCD->cd_BoardAddr)[currentWordIndex];
-                                    
-                                    if (currentMemoryWord != currentFlashWord)
-                                        printf("VERIFY ERROR: Address: 0x%X, Memory: 0x%X, FLASH: 0x%X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
-                                    
-                                    currentWordIndex += 1;
+                                if (currentMemoryWord != currentFlashWord)
+                                    printf("VERIFY ERROR: Address: 0x%X, Memory: 0x%X, FLASH: 0x%X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
+                                
+                                currentWordIndex += 1;
 
-                                } while (currentWordIndex < (totalBytesReadFromFile >> 1));
-
-                                FreeMem(memoryHandle, 0x80000);
-                                Close(fileHandle);
-                            }
-                            else
-                            {
-                                Close(fileHandle);
-                                printf("Failed to allocate memory %d bytes required\n", (ULONG)myFIB.fib_Size);                                
-                            }
+                            } while (currentWordIndex < (fileSize >> 1));
+                            
+                           freeFileHandler(fileSize);                            
+                        }
+                        else if (readFileNotFound == readFileVerify)
+                        {
+                            printf("Failed to open kickstart image: %s\n", argv[2]);
+                        }
+                        else if (readFileNoMemoryAllocated == readFileVerify)
+                        {
+                            printf("Failed to allocate memory for file: %s\n", argv[2]);
+                        }
+                        else if (readFileGeneralError == readFileVerify)
+                        {
+                            printf("Failed to read into memory file: %s\n\n");    
+                        }
+                        else
+                        {
+                            printf("Unhandled error in readFileIntoMemoryHandler()\n");    
                         }
                     }
                     else
                     {
-                        printf("Failed to open kickstart image: %s\n", argv[2]);
+                        printf("Unable to determine file size of %s\n", argv[2]);
                     }
                 }
                 else
                 {
                     printf("No Kickstart image specified\n");
                 }
-            }
-            break;            
-                
-            default:
-            {
-                printf("Wrong argument: %s\n", argv[1]);
             }
             break;
         }

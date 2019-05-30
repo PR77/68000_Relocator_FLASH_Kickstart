@@ -30,17 +30,18 @@
 tFlashCommandStatus checkFlashStatus(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
-    ULONG totalLoopCount;
     UWORD previousWord;
+    UWORD currentWord;
 
     flashCommandStatus = flashBusy;
     
 #ifndef NDEBUG
     printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
 #endif
-    previousWord = *(UWORD *)address;
+    previousWord = (*(UWORD *)address) & TOGGLE_STATUS;
+    currentWord = (*(UWORD *)address) & TOGGLE_STATUS;
     
-    if (0 == ((previousWord ^ *(UWORD *)address) && TOGGLE_STATUS))
+    if (previousWord == currentWord)
     {
         flashCommandStatus = flashOK;
     }

@@ -27,7 +27,6 @@
 
 static BPTR fileHandle;
 static APTR memoryHandle;
-static ULONG allocatedMemorySize;
 
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
@@ -40,21 +39,73 @@ static ULONG allocatedMemorySize;
 /*****************************************************************************/
 /* Function:    readFileIntoMemoryHandler()                                  */
 /* Returns:     tReadFileHandler                                             */
-/* Parameters:  None                                                         */
+/* Parameters:  char *fileName, ULONG bufferSize, APTR * pMemoryBase         */
 /* Description: Open selected file if exists and reads into allocated memory */
 /*****************************************************************************/
-tReadFileHandler readFileIntoMemoryHandler(char *fileName)
+tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APTR * pMemoryBase)
 {
+    tReadFileHandler readFileHandler = readFileIdle;    
     
+#ifndef NDEBUG
+    printf("ENTRY: readFileIntoMemoryHandler(char *fileName %s, ULONG bufferSize %d, APTR * pMemoryBase 0x%X)\n", fileName, bufferSize, pMemoryBase);
+#endif    
+
+    if (0L != fileName)
+    {
+        fileHandle = Open(fileName, MODE_OLDFILE);
+#ifndef NDEBUG
+        printf("FLOW: readFileIntoMemoryHandler: Opening fileHandle 0x%X\n", fileHandle);
+#endif 
+        if (0L != fileHandle)
+        {
+            memoryHandle = AllocMem(bufferSize, 0);
+
+            if (memoryHandle)
+            {
+                if (bufferSize == Read(fileHandle, memoryHandle, bufferSize))
+                {
+                    *pMemoryBase = memoryHandle;
+    
+                    readFileHandler = readFileOK;
+                }
+                else
+                {
+                    FreeMem(memoryHandle, bufferSize);
+                    Close(fileHandle);
+                    
+                    readFileHandler = readFileGeneralError;
+                }
+            }
+            else
+            {
+                Close(fileHandle);
+                
+                readFileHandler = readFileNoMemoryAllocated;
+            }
+        }
+        else
+        {
+            readFileHandler = readFileNotFound;
+        }
+    }
+    else
+    {
+        readFileHandler = readFileNoFileSpecified;
+    }
+
+#ifndef NDEBUG
+    printf("EXIT: readFileIntoMemoryHandler(readFileHandler 0x%X)\n", readFileHandler);
+#endif    
+    return (readFileHandler);    
 }
 
 /*****************************************************************************/
 /* Function:    freeFileHandler()                                            */
 /* Returns:     tReadFileHandler                                             */
-/* Parameters:  None                                                         */
+/* Parameters:  ULONG bufferSize                                             */
 /* Description: Closes open file handle and deallocates storage memory       */
 /*****************************************************************************/
-tReadFileHandler freeFileHandler(void)
+tReadFileHandler freeFileHandler(ULONG bufferSize)
 {
     tReadFileHandler readFileHandler = readFileIdle;
     
@@ -78,11 +129,10 @@ tReadFileHandler freeFileHandler(void)
 #ifndef NDEBUG
         printf("FLOW: freeFileHandler: Memory Allocated(memoryHandle 0x%X)\n", memoryHandle);
 #endif
-        Close(fileHandle);
+        FreeMem(memoryHandle, bufferSize);
 #ifndef NDEBUG
         printf("FLOW: freeFileHandler: Memory Deallocated(memoryHandle 0x%X)\n", memoryHandle);
 #endif
-        FreeMem(memoryHandle, allocatedMemorySize);
     }
 
     readFileHandler = readFileOK;
@@ -141,7 +191,7 @@ tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
         *pFileSize = 0;
         
 #ifndef NDEBUG
-    printf("EXIT: freeFileHandler(readFileHandler 0x%X)\n", readFileHandler);
+    printf("EXIT: getFileSize(readFileHandler 0x%X)\n", readFileHandler);
 #endif    
     return (readFileHandler);
 }
