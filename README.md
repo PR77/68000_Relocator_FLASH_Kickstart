@@ -75,5 +75,7 @@ In principle the operation is fairly simple. A CPLD is used to switch between th
 ### Known Issues And Pending Items
 As this design is still in-the-making, the following items are pending:
 
-1. Software written however a bug is present where the image written to Flash is corrupt. Will implement a -v(erify) function to check. 
-2. Support for ROMs based at address 0xF00000.
+1. Identified an issue where programming the Flash when the application is executing out of FastRAM may lead to Bytes / Words not programming correctly. The program procedure can be executed again (without Erase first as the unprogrammed Bytes / Words remain as 0xFF / 0xFFFF) and the Flash programming will be OK. Will look into fixing this as I am not sure if there is a SW issue or CPLD issue in my Rev 2 Accelerator.
+2. Will update the software to not load the entire Kickstart content into RAM before programming; rather will load 64K chunks at a time.
+3. Develop a GUI for the software if no command line options are passed.
+4. Support for ROMs based at address 0xF00000.

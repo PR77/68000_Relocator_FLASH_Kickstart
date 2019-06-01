@@ -19,6 +19,8 @@
 /*****************************************************************************/
 
 #define LOOP_TIMEOUT        (ULONG)10000
+#define EXPECTED_MANUFAC_ID (UWORD)0xBFBF
+#define EXPECTED_DEVICE_ID  (UWORD)0xB6B6
 
 /*****************************************************************************/
 /* Types *********************************************************************/
@@ -64,6 +66,7 @@ int main(int argc, char **argv)
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
         printf(" -p\tPROGRAM <filename>\n");
         printf(" -v\tVERIFY <filename>\n")
+        printf(" -t\tTEST <cyclically read FLASH CHIP INFO until interrupted>\n");
         exit(RETURN_FAIL);
     }
     
@@ -109,8 +112,8 @@ int main(int argc, char **argv)
     /* Opened correctly, so print out the configuration details */
     {
         printf("FLASH Kickstart Hardware identified with configuration:\n");
-        printf("cd_BoardAddr = 0x%X\n", myCD->cd_BoardAddr);
-        printf("cd_BoardSize = 0x%X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
+        printf("cd_BoardAddr = 0x%06X\n", myCD->cd_BoardAddr);
+        printf("cd_BoardSize = 0x%06X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
     }
     
     while ((argc > 1) && (argv[1][0] == '-'))
@@ -123,7 +126,7 @@ int main(int argc, char **argv)
                 
                 if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
                 {
-                    printf("Manufacturing ID: High Device 0x%X, Low Device 0x%X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
+                    printf("Manufacturing ID: High Device 0x%02X, Low Device 0x%02X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
                 }
                 else
                 {
@@ -132,7 +135,7 @@ int main(int argc, char **argv)
 
                 if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
                 {
-                    printf("Device ID: High Device 0x%X, Low Device 0x%X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
+                    printf("Device ID: High Device 0x%02X, Low Device 0x%02X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
                 }
                 else
                 {
@@ -260,15 +263,18 @@ int main(int argc, char **argv)
 
                                 } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
                                 
+                                if (((UWORD *)pBuffer)[currentWordWritten] != (((UWORD *)myCD->cd_BoardAddr)[currentWordWritten]))
+                                    printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordWritten << 1), ((UWORD *)pBuffer)[currentWordWritten], ((UWORD *)myCD->cd_BoardAddr)[currentWordWritten]);
+                                
                                 if (breakCount == LOOP_TIMEOUT)
                                 {
-                                    printf("Failed to program word %d:%d\n", currentWordWritten, (ULONG)myFIB.fib_Size);
+                                    printf("Failed to program LOOP_TIMEOUT\n");
                                     break;
                                 }
                                                                   
                                 if (progressIndicatorUpdateCounter == 0)
                                 {
-                                    printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);
+                                    printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);                                    
                                     
                                     if (progressIndicatorIndex >= 4)
                                         progressIndicatorIndex = 0;
@@ -336,7 +342,7 @@ int main(int argc, char **argv)
                                 currentFlashWord = ((UWORD *)myCD->cd_BoardAddr)[currentWordIndex];
                                 
                                 if (currentMemoryWord != currentFlashWord)
-                                    printf("VERIFY ERROR: Address: 0x%X, Memory: 0x%X, FLASH: 0x%X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
+                                    printf("VERIFY ERROR: Address: 0x%06X, Memory: 0x%04X, FLASH: 0x%04X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
                                 
                                 currentWordIndex += 1;
 
@@ -370,6 +376,27 @@ int main(int argc, char **argv)
                 {
                     printf("No Kickstart image specified\n");
                 }
+            }
+            break;
+            
+            case 't':
+            {
+                UWORD flashManufactureID, flashDeviceID;
+                                
+                do {
+                    
+                    if (flashOK != readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
+                        break;
+                    
+                    if (flashOK != readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
+                        break;
+                    
+                    if (flashManufactureID != EXPECTED_MANUFAC_ID)
+                        printf("Manufacturing ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_MANUFAC_ID, flashManufactureID);
+                    
+                    if (flashDeviceID != EXPECTED_DEVICE_ID)
+                        printf("Device ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_DEVICE_ID, flashDeviceID);
+                } while (1);
             }
             break;
         }

@@ -34,7 +34,7 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
     UWORD currentWord;
 
     flashCommandStatus = flashBusy;
-    
+        
 #ifndef NDEBUG
     printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
 #endif
