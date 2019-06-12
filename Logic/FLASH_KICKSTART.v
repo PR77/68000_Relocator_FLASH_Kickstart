@@ -18,6 +18,10 @@
 
     Revision 0.0 - 08.09.2018:
     Initial revision.
+
+    Revision 1.0 - 12.06.2019:
+    Thanks to https://github.com/niklasekstrom for refactoring and addressing
+    the Auto Config (R) glitch when used with a cascaded chain.
 */
 
  module FLASH_KICKSTART(
@@ -179,7 +183,7 @@
                 case (ADDRESS_LOW[5:1])
                     5'h00: dataOut <= 4'hC;  // (00)
                     5'h01: dataOut <= SIZE_512K ? 4'h4 : 4'h5; // (02) 512K / 1M
-                    5'h02: dataOut <= 4'h9;  // (04)  
+                    5'h02: dataOut <= 4'h9;  // (04)
                     5'h03: dataOut <= 4'h7;  // (06)
                     5'h04: dataOut <= 4'h7;  // (08/0A)
                     5'h05: dataOut <= 4'hF;
@@ -188,7 +192,7 @@
                     5'h08: dataOut <= 4'hF;  // (10/12)
                     5'h09: dataOut <= 4'h8;
                     5'h0A: dataOut <= 4'h4;  // (14/16)
-                    5'h0B: dataOut <= 4'h6;                
+                    5'h0B: dataOut <= 4'h6;
                     5'h0C: dataOut <= 4'hA;  // (18/1A)
                     5'h0D: dataOut <= 4'hF;
                     5'h0E: dataOut <= 4'hB;  // (1C/1E)
