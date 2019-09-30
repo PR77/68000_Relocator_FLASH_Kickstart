@@ -62,7 +62,7 @@ tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APT
 
             if (memoryHandle)
             {
-                if (bufferSize == Read(fileHandle, memoryHandle, bufferSize))
+                if (bufferSize == (ULONG)Read(fileHandle, memoryHandle, bufferSize))
                 {
                     *pMemoryBase = memoryHandle;
     

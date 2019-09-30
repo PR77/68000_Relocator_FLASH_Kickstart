@@ -36,6 +36,9 @@
 #define FLASH_MANUFACTOR_ID     (0x0000 << 1)
 #define FLASH_DEVICE_ID         (0x0001 << 1)
 
+#define EXPECTED_MANUFAC_ID     (UWORD)0xBFBF
+#define EXPECTED_DEVICE_ID      (UWORD)0xB6B6
+
 /*****************************************************************************/
 /* Types *********************************************************************/
 /*****************************************************************************/
@@ -47,6 +50,8 @@ typedef enum {
     flashStatusError,
     flashEraseError,
     flashProgramError,
+    flashProgramRetry,
+    flashProgramTimeout,
     flashOK
     
 } tFlashCommandStatus;

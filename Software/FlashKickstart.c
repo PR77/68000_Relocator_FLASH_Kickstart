@@ -3,6 +3,8 @@
 #include <clib/intuition_protos.h>
 #include <clib/expansion_protos.h>
 
+#include <proto/dos.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,8 +21,7 @@
 /*****************************************************************************/
 
 #define LOOP_TIMEOUT        (ULONG)10000
-#define EXPECTED_MANUFAC_ID (UWORD)0xBFBF
-#define EXPECTED_DEVICE_ID  (UWORD)0xB6B6
+#define KICKSTART_256K      (ULONG)(256 * 1024)
 
 /*****************************************************************************/
 /* Types *********************************************************************/
@@ -39,16 +40,59 @@ char programAlertMsg[] = "\x00\xC0\x14 ABOUT TO FLASH KICKSTART CHIPS \x00\x01" 
 char eraseAlertMsg[] = "\x00\xC0\x14 ABOUT TO ERASE KICKSTART CHIPS \x00\x01" \
 "\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
 
-char progressIndicator[] = "-\\|//";
-
 /*****************************************************************************/
 /* Prototypes ****************************************************************/
 /*****************************************************************************/
 
 int main(int argc, char **argv);
+tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * pBuffer);
 
 /*****************************************************************************/
-/* Code **********************************************************************/
+/* Local Code ****************************************************************/
+/*****************************************************************************/
+tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * pBuffer)
+{
+    tFlashCommandStatus flashCommandStatus = flashIdle;
+    ULONG currentWordIndex = 0;
+    ULONG breakCount = 0;
+    ULONG errorCount = 0;
+    
+    do {
+        writeFlashWord(baseAddress, currentWordIndex << 1, ((UWORD *)pBuffer)[currentWordIndex]);
+
+        breakCount = 0;
+        
+        do {
+            flashCommandStatus = checkFlashStatus(baseAddress + (currentWordIndex << 1));
+            breakCount++;
+
+        } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+        
+        if (((UWORD *)pBuffer)[currentWordIndex] != (((UWORD *)baseAddress)[currentWordIndex]))
+        {
+            errorCount++;
+            printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+        }
+        
+        if (breakCount == LOOP_TIMEOUT)
+        {
+            flashCommandStatus = flashProgramTimeout
+            break;
+        }
+                                                                              
+        currentWordIndex += 1;
+    } while (currentWordIndex < (fileSize >> 1));
+    
+    if (errorCount)
+    {
+        flashCommandStatus = flashProgramRetry;
+    }
+
+    return (flashCommandStatus);
+}
+
+/*****************************************************************************/
+/* Main Code *****************************************************************/
 /*****************************************************************************/
 int main(int argc, char **argv)
 {
@@ -61,11 +105,9 @@ int main(int argc, char **argv)
     {
         printf("usage: FlashKickstart <option> <filename>\n");
         printf(" -i\tFLASH CHIP INFO\n");
-        printf(" -k\tKICKSTART IMAGE INFO\n");
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
         printf(" -p\tPROGRAM <filename>\n");
-        printf(" -v\tVERIFY <filename>\n")
         printf(" -t\tTEST <cyclically read FLASH CHIP INFO until interrupted>\n");
         exit(RETURN_FAIL);
     }
@@ -144,35 +186,6 @@ int main(int argc, char **argv)
             }
             break;
             
-            case 'k':
-            {
-                if ((argc > 2) && argv[2])
-                {
-                    ULONG fileSize;
-                    tReadFileHandler readFileDetails;
-
-                    readFileDetails = getFileSize(argv[2], &fileSize);
-                    
-                    if (readFileOK == readFileDetails)
-                    {
-                        printf("Kickstart image file <%s>, size <%d bytes>\n", argv[2], fileSize)
-                    }
-                    else if (readFileNotFound == readFileDetails)
-                    {
-                        printf("Failed to open kickstart image: %s\n", argv[2]);
-                    }
-                    else if (readFileNoFileSpecified == readFileDetails)
-                    {
-                        printf("Unhandled error in getFileSize()\n");    
-                    }
-                }
-                else
-                {
-                    printf("No Kickstart image specified\n");
-                }
-            }
-            break;
-            
             case 'e':
             {
                 if (!DisplayAlert(RECOVERY_ALERT, eraseAlertMsg, 52))
@@ -182,26 +195,20 @@ int main(int argc, char **argv)
                 {
                     tFlashCommandStatus flashCommandStatus;
                     ULONG breakCount = 0;
-                    UBYTE progressIndicatorIndex = 0;
                     
                     do {
                         flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr);
                         breakCount++;
-
-                        printf("Erase FLASH ... %c\r", progressIndicator[progressIndicatorIndex++]);
-                        
-                        if (progressIndicatorIndex >= 4)
-                            progressIndicatorIndex = 0;
                         
                     } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
                                     
                     if (flashOK == flashCommandStatus)
                     {
-                        printf("\nFLASH device erased OK\n");
+                        printf("FLASH device erased OK\n");
                     }
                     else
                     {
-                        printf("\nFLASH device erased ERROR\n");
+                        printf("FLASH device erased ERROR\n");
                     }
                 }
                 else
@@ -246,46 +253,13 @@ int main(int argc, char **argv)
                         
                         if (readFileOK == readFileProgram)
                         {
-                            tFlashCommandStatus flashCommandStatus = flashIdle;
-                            ULONG currentWordWritten = 0;
-                            ULONG breakCount = 0;
-                            UWORD progressIndicatorUpdateCounter = 0;
-                            UBYTE progressIndicatorIndex = 0;
+                            tFlashCommandStatus programFlashStatus = flashIdle;
+                            ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr
                             
                             do {
-                                writeFlashWord((ULONG)myCD->cd_BoardAddr, currentWordWritten << 1, ((UWORD *)pBuffer)[currentWordWritten]);
-
-                                breakCount = 0;
-                                
-                                do {
-                                    flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr + (currentWordWritten << 1));
-                                    breakCount++;
-
-                                } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
-                                
-                                if (((UWORD *)pBuffer)[currentWordWritten] != (((UWORD *)myCD->cd_BoardAddr)[currentWordWritten]))
-                                    printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordWritten << 1), ((UWORD *)pBuffer)[currentWordWritten], ((UWORD *)myCD->cd_BoardAddr)[currentWordWritten]);
-                                
-                                if (breakCount == LOOP_TIMEOUT)
-                                {
-                                    printf("Failed to program LOOP_TIMEOUT\n");
-                                    break;
-                                }
-                                                                  
-                                if (progressIndicatorUpdateCounter == 0)
-                                {
-                                    printf("Programming FLASH ... %c\n", progressIndicator[progressIndicatorIndex++]);                                    
-                                    
-                                    if (progressIndicatorIndex >= 4)
-                                        progressIndicatorIndex = 0;
-                                }
-
-                                if (progressIndicatorUpdateCounter++ > 0x4000)
-                                /* Move progress indicator after each 32K is written. */
-                                    progressIndicatorUpdateCounter = 0;
-                                    
-                                currentWordWritten += 1;
-                            } while (currentWordWritten < (fileSize >> 1));
+                                programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
+                            
+                            } while (programFlashStatus == flashProgramRetry);
 
                             freeFileHandler(fileSize);                            
                         }
@@ -298,67 +272,6 @@ int main(int argc, char **argv)
                             printf("Failed to allocate memory for file: %s\n", argv[2]);
                         }
                         else if (readFileGeneralError == readFileProgram)
-                        {
-                            printf("Failed to read into memory file: %s\n\n");    
-                        }
-                        else
-                        {
-                            printf("Unhandled error in readFileIntoMemoryHandler()\n");    
-                        }
-                    }
-                    else
-                    {
-                        printf("Unable to determine file size of %s\n", argv[2]);
-                    }
-                }
-                else
-                {
-                    printf("No Kickstart image specified\n");
-                }
-            }
-            break;
-            
-            case 'v':
-            {
-                if ((argc > 2) && argv[2])
-                {
-                    APTR pBuffer;
-                    ULONG fileSize;
-                    
-                    tReadFileHandler readFileVerify = getFileSize(argv[2], &fileSize);
-                    
-                    if (readFileOK == readFileVerify)
-                    {
-                        readFileVerify = readFileIntoMemoryHandler(argv[2], fileSize, &pBuffer);
-                        
-                        if (readFileOK == readFileVerify)
-                        {
-                            ULONG currentWordIndex = 0;
-                            UWORD currentMemoryWord;
-                            UWORD currentFlashWord;
-
-                            do {
-                                currentMemoryWord = ((UWORD *)pBuffer)[currentWordIndex];
-                                currentFlashWord = ((UWORD *)myCD->cd_BoardAddr)[currentWordIndex];
-                                
-                                if (currentMemoryWord != currentFlashWord)
-                                    printf("VERIFY ERROR: Address: 0x%06X, Memory: 0x%04X, FLASH: 0x%04X\n", currentWordIndex, currentMemoryWord, currentFlashWord);
-                                
-                                currentWordIndex += 1;
-
-                            } while (currentWordIndex < (fileSize >> 1));
-                            
-                           freeFileHandler(fileSize);                            
-                        }
-                        else if (readFileNotFound == readFileVerify)
-                        {
-                            printf("Failed to open kickstart image: %s\n", argv[2]);
-                        }
-                        else if (readFileNoMemoryAllocated == readFileVerify)
-                        {
-                            printf("Failed to allocate memory for file: %s\n", argv[2]);
-                        }
-                        else if (readFileGeneralError == readFileVerify)
                         {
                             printf("Failed to read into memory file: %s\n\n");    
                         }
