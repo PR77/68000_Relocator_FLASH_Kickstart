@@ -260,6 +260,11 @@ int main(int argc, char **argv)
                                 programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
                             
                             } while (programFlashStatus == flashProgramRetry);
+                            
+                            if (programFlashStatus == flashProgramTimeout)
+                            {
+                                printf("Failed to program kickstart image: Flash Program Timeout\n");
+                            }
 
                             freeFileHandler(fileSize);                            
                         }
