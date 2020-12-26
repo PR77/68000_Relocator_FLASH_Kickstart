@@ -1,5 +1,5 @@
 # 68000 Relocator with FLASH based Kickstart
-Forked from https://github.com/AwesomeInferno/68000Relocator and modified to support FLASH Kickstart allowing programming in system.
+Forked from https://github.com/PR77/68000_Relocator_FLASH_Kickstart and modified.
 
 # Warning
 This design has not been compliance tested and will not be. It may cause damage to your A500. I take no responsibility for this. I accept no responsibility for any damage to any equipment that results from the use of this design and its components. IT IS ENTIRELY AT YOUR OWN RISK!
@@ -12,15 +12,6 @@ Nice 3D model:
 ![3D Model](/Images/68000RelocatorFLASHKickstart.png)
 
 ... this is the final design.
-
-### Prototype
-Drawing in from the experience and usefulness of my prototyping jig created for my Rev-1 Accelerator (https://github.com/PR77/A500_ACCEL_RAM_IDE-Rev-1), I decided to do the same for this hardware expansion.
-
-So the prototype looks like this:
-
-![Jumpered PCB](/Images/PrototypeHardware.jpg)
-
-To keep the prototype simple, instead of using Flash devices (AMD AM29F040B are my target has I have these and experience with the devices) I used simple SRAMs (also from my Accelerator). There was also the learning curve with using VBCC (http://eab.abime.net/showthread.php?t=83113) to develop the software to control the hardware, but with that sorted out I managed to finally get the prototype to work.
 
 ### Final Hardware
 Here is the final hardware loaded and installed with my Rev-2 Accelerator (https://github.com/PR77/A500_ACCEL_RAM_IDE-Rev-2). I was not able to easily source new AMD AM29F040B Flash devices so I changed over to SST39SF0x0A devices. They are JEDEC compliant so no issue with the pinout. Just watch out for the device identification in the SW.
@@ -64,10 +55,10 @@ Then when loading into RAM Kickstart version 3.1 the software will make a simple
 ![ROM Kickstart 3.1](/Images/Kickstart3.1.jpg)
 
 ### How It Works
-In principle the operation is fairly simple. A CPLD is used to switch between the ROM Kickstart on the Motherboard or the Flash Kickstart on the CPU Relocator. Switching is performed by an active /RESET (CTRL-A-A) without interruption for longer than 1 second. Shorter /RESET durations will simply just reset the Amiga. After a POR (Power On Reset) by default the Flash Kickstart on the CPU Relocator will be used.
+In principle the operation is fairly simple. A CPLD is used to switch between the ROM Kickstart on the Motherboard or the Flash Kickstart on the CPU Relocator. Switching is performed by an active /RESET (CTRL-A-A) without interruption for longer than 1 second. Shorter /RESET durations will simply just reset the Amiga. After a POR (Power On Reset) by default the Kickstart on the Motherboard will be used.
 
 #### ROM based Kickstart
-When ROM Kickstart is being used, the hardware simply passed /AS to the Amiga Motherboard to allow GARY perform the address decode and chip select of the internal ROM. During this process, the Flash Kickstart is simply not used - except when programming. A Zorro II space of 512K is  requested and allocated by the Amiga which maps to the Flash devices.
+When ROM Kickstart is being used, the hardware simply passed /AS to the Amiga Motherboard to allow GARY perform the address decode and chip select of the internal ROM. During this process, the Flash Kickstart is simply not used - except when programming. A Zorro II space of 512K or 1MB (depending on jumper) is requested and allocated by the Amiga which maps to the Flash devices.
 
 When programming the Flash devices, access is via this Zorro II space. Programming of the Flash devices can only be performed when ROM Kickstart is being used.
 
@@ -76,15 +67,3 @@ When Flash Kickstart is being used, the hardware simply blocks /AS to the Amiga 
 
 #### Overlay Interception
 When Flash Kickstart mode is being used, the CPLD will also intercept the overlay of the Kickstart in the 0x000000 memory space until the first access to the custom chip register is performed. This ensures the correct SP and IP initialisation is performed directly after POR (Power On Reset) as the Flash Kickstart is used by default.
-
-### Known Issues And Pending Items
-The following items are pending:
-
-1. Will update the software to not load the entire Kickstart content into RAM before programming; rather will load 64K chunks at a time.
-2. Support for ROMs based at address 0xF00000.
-
-### External Contributions
-Thanks to the Open Source efforts, here is a list of improvements people have made:
-
-1. Side Slot expander version and GUI - https://github.com/KaiEmilW/A500-Side-Expansion-Slot-CPU-Relocator
-

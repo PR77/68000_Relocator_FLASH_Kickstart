@@ -26,6 +26,9 @@
     Revision 2.0 - 22.08.2020:
     Thanks to https://github.com/niklasekstrom for again refactoring and addressing
     the issue identified by "The Q!". 
+	 
+	 Revision 2.1 - 26.12.2020:
+	 Switch power-on default to boot from motherboard ROM.
     
 */
 
@@ -55,7 +58,7 @@
 
 		assign FLASH_A19 = 1'b0;
 
-		reg useMotherboardKickstart = 1'b0;
+		reg useMotherboardKickstart = 1'b1;
 		reg [19:0] switchCounter = 20'd0;
 		reg hasSwitched = 1'b0;
 
