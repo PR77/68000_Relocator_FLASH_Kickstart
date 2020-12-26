@@ -1,8 +1,8 @@
-CC=vc +kick13
-CFLAGS=-I$(NDK_INC) -DNDEBUG
+CC=m68k-amigaos-gcc
+CFLAGS=-mcrt=nix13 -DNDEBUG
 
 all: FlashKickstart
 
-FlashKickstart: FlashKickstart.c FlashDeviceSST39.c Helpers.c
+FlashKickstart: FlashKickstart.c FlashDeviceSST39.c Helpers.c RomInfo.c
 
-	$(CC) $(CFLAGS) $^ -lamiga -o FK
+	$(CC) $(CFLAGS) $^ -o FK

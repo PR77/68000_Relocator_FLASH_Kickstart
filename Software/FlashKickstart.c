@@ -1,3 +1,23 @@
+/*
+    This file is part of FLASH_KICKSTART originally designed by
+    Paul Raspa.
+
+    Modifications by Andrew (LinuxJedi) Hutchings.
+
+    FLASH_KICKSTART is free software: you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    FLASH_KICKSTART is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with FLASH_KICKSTART. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
@@ -11,6 +31,7 @@
 
 #include "FlashDeviceSST39.h"
 #include "Helpers.h"
+#include "RomInfo.h"
 
 /*****************************************************************************/
 /* Macros ********************************************************************/
@@ -36,7 +57,7 @@ struct Library *IntuitionBase = NULL;
 
 char programAlertMsg[] = "\x00\xC0\x14 ABOUT TO FLASH KICKSTART CHIPS \x00\x01" \
 "\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
-                  
+
 char eraseAlertMsg[] = "\x00\xC0\x14 ABOUT TO ERASE KICKSTART CHIPS \x00\x01" \
 "\x00\x80\x24 PRESS MOUSEBUTTON:   LEFT=PROCEED   RIGHT=EXIT \x00";
 
@@ -50,39 +71,70 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
 /*****************************************************************************/
 /* Local Code ****************************************************************/
 /*****************************************************************************/
+static void eraseFlash(struct ConfigDev *myCD)
+{
+    if (!DisplayAlert(RECOVERY_ALERT, eraseAlertMsg, 52))
+        return;
+
+    if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
+    {
+        tFlashCommandStatus flashCommandStatus;
+        ULONG breakCount = 0;
+
+        do {
+            flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr);
+            breakCount++;
+
+        } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
+
+        if (flashOK == flashCommandStatus)
+        {
+            printf("FLASH device erased OK\n");
+        }
+        else
+        {
+            printf("FLASH device erased ERROR\n");
+        }
+    }
+    else
+    {
+        printf("FLASH device erased COMMAND NOT ACCEPTED\n");
+    }
+}
+
 tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * pBuffer)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
     ULONG currentWordIndex = 0;
     ULONG breakCount = 0;
     ULONG errorCount = 0;
-    
+
     do {
         writeFlashWord(baseAddress, currentWordIndex << 1, ((UWORD *)pBuffer)[currentWordIndex]);
 
         breakCount = 0;
-        
+
         do {
             flashCommandStatus = checkFlashStatus(baseAddress + (currentWordIndex << 1));
             breakCount++;
 
         } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
-        
+
         if (((UWORD *)pBuffer)[currentWordIndex] != (((UWORD *)baseAddress)[currentWordIndex]))
         {
             errorCount++;
             printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
         }
-        
+
         if (breakCount == LOOP_TIMEOUT)
         {
-            flashCommandStatus = flashProgramTimeout
+            flashCommandStatus = flashProgramTimeout;
             break;
         }
-                                                                              
+
         currentWordIndex += 1;
     } while (currentWordIndex < (fileSize >> 1));
-    
+
     if (errorCount)
     {
         flashCommandStatus = flashProgramRetry;
@@ -96,6 +148,7 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
 /*****************************************************************************/
 int main(int argc, char **argv)
 {
+    struct romInfo rInfo;
     struct ConfigDev *myCD = NULL;
     struct FileInfoBlock myFIB;
     BPTR fileHandle = 0L;
@@ -103,42 +156,44 @@ int main(int argc, char **argv)
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
     {
+        printf("FlashKickstart v2.0\n");
         printf("usage: FlashKickstart <option> <filename>\n");
         printf(" -i\tFLASH CHIP INFO\n");
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
         printf(" -p\tPROGRAM <filename>\n");
         printf(" -t\tTEST <cyclically read FLASH CHIP INFO until interrupted>\n");
+
         exit(RETURN_FAIL);
     }
-    
+
     /* Open any version intuition.library to support displayAlert */
     IntuitionBase = OpenLibrary("intuition.library", 0);
-    
+
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == IntuitionBase)
     {
         printf("Failed to open intuition.library\n");
         exit(RETURN_FAIL);
     }
-    
+
     /* Open any version expansion.library to read in ConfigDevs */
     ExpansionBase = OpenLibrary("expansion.library", 0L);
-    
+
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == ExpansionBase)
     {
         printf("Failed to open expansion.library\n");
         exit(RETURN_FAIL);
     }
- 
+
     /*----------------------------------------------------*/
     /* FindConfigDev(oldConfigDev, manufacturer, product) */
     /* oldConfigDev = NULL for the top of the list        */
     /* manufacturer = -1 for any manufacturer             */
     /* product      = -1 for any product                  */
     /*----------------------------------------------------*/
-  
+
     /* Check if correct Zorro II hardware is present. FLASH Kickstart */
     myCD = FindConfigDev(0L, 1977, 104);
 
@@ -157,7 +212,7 @@ int main(int argc, char **argv)
         printf("cd_BoardAddr = 0x%06X\n", myCD->cd_BoardAddr);
         printf("cd_BoardSize = 0x%06X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
     }
-    
+
     while ((argc > 1) && (argv[1][0] == '-'))
     {
         switch (argv[1][1])
@@ -165,7 +220,7 @@ int main(int argc, char **argv)
             case 'i':
             {
                 UWORD flashManufactureID, flashDeviceID;
-                
+
                 if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
                 {
                     printf("Manufacturing ID: High Device 0x%02X, Low Device 0x%02X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
@@ -183,41 +238,34 @@ int main(int argc, char **argv)
                 {
                     printf("Failed to identify FLASH Device ID\n");
                 }
-            }
-            break;
-            
-            case 'e':
-            {
-                if (!DisplayAlert(RECOVERY_ALERT, eraseAlertMsg, 52))
-                    break;
-                
-                if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
+                if (getRomInfo((BYTE*)0xF80000, &rInfo))
                 {
-                    tFlashCommandStatus flashCommandStatus;
-                    ULONG breakCount = 0;
-                    
-                    do {
-                        flashCommandStatus = checkFlashStatus((ULONG)myCD->cd_BoardAddr);
-                        breakCount++;
-                        
-                    } while ((flashCommandStatus != flashOK) && (breakCount < LOOP_TIMEOUT));
-                                    
-                    if (flashOK == flashCommandStatus)
-                    {
-                        printf("FLASH device erased OK\n");
-                    }
-                    else
-                    {
-                        printf("FLASH device erased ERROR\n");
-                    }
+                    printf("Failed to get Kickstart ROM info\n");
                 }
                 else
                 {
-                    printf("FLASH device erased COMMAND NOT ACCEPTED\n");
+                    printf("Motherboard ROM: ");
+                    displayRomInfo(&rInfo);
+                }
+                if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
+                {
+                    printf("Failed to get Flash ROM info\n");
+                }
+                else
+                {
+                    printf("Flash ROM: ");
+                    displayRomInfo(&rInfo);
                 }
             }
             break;
-            
+
+            case 'e':
+            {
+                eraseFlash(myCD);
+                break;
+            }
+            break;
+
             case 'd':
             {
                 char *nextParam;
@@ -228,45 +276,73 @@ int main(int argc, char **argv)
                 {
                     startAddress = strtoul(argv[2], &nextParam, 16);
                 }
-                
+
                 if ((argc > 3) && argv[3])
                 {
                     length = strtoul(argv[3], &nextParam, 16);
                 }
-                
-                hexDump("Memory DUMP", (APTR)startAddress, length);                
+
+                hexDump("Memory DUMP", (APTR)startAddress, length);
             }
             break;
-            
+
             case 'p':
             {
                 if ((argc > 2) && argv[2])
                 {
                     APTR pBuffer;
                     ULONG fileSize;
-                    
+
                     tReadFileHandler readFileProgram = getFileSize(argv[2], &fileSize);
-                    
+
                     if (readFileOK == readFileProgram)
                     {
                         readFileProgram = readFileIntoMemoryHandler(argv[2], fileSize, &pBuffer);
-                        
+
                         if (readFileOK == readFileProgram)
                         {
+                            if (getRomInfo((BYTE*)0xF80000, &rInfo))
+                            {
+                                printf("Failed to get Kickstart ROM info\n");
+                            }
+                            else
+                            {
+                                printf("Motherboard ROM: ");
+                                displayRomInfo(&rInfo);
+                            }
+                            if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
+                            {
+                                printf("Failed to get Flash ROM info\n");
+                            }
+                            else
+                            {
+                                printf("Flash ROM: ");
+                                displayRomInfo(&rInfo);
+                            }
+                            if (getRomInfo((BYTE*)pBuffer, &rInfo))
+                            {
+                                printf("Failed to get File ROM info\n");
+                            }
+                            else
+                            {
+                                printf("File ROM: ");
+                                displayRomInfo(&rInfo);
+                            }
+                            eraseFlash(myCD);
                             tFlashCommandStatus programFlashStatus = flashIdle;
-                            ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr
-                            
+                            ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr;
+
                             do {
                                 programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
-                            
+
                             } while (programFlashStatus == flashProgramRetry);
-                            
+
                             if (programFlashStatus == flashProgramTimeout)
                             {
                                 printf("Failed to program kickstart image: Flash Program Timeout\n");
                             }
 
-                            freeFileHandler(fileSize);                            
+                            freeFileHandler(fileSize);
                         }
                         else if (readFileNotFound == readFileProgram)
                         {
@@ -278,11 +354,11 @@ int main(int argc, char **argv)
                         }
                         else if (readFileGeneralError == readFileProgram)
                         {
-                            printf("Failed to read into memory file: %s\n\n");    
+                            printf("Failed to read into memory file: %s\n\n");
                         }
                         else
                         {
-                            printf("Unhandled error in readFileIntoMemoryHandler()\n");    
+                            printf("Unhandled error in readFileIntoMemoryHandler()\n");
                         }
                     }
                     else
@@ -296,33 +372,33 @@ int main(int argc, char **argv)
                 }
             }
             break;
-            
+
             case 't':
             {
                 UWORD flashManufactureID, flashDeviceID;
-                                
+
                 do {
-                    
+
                     if (flashOK != readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
                         break;
-                    
+
                     if (flashOK != readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
                         break;
-                    
+
                     if (flashManufactureID != EXPECTED_MANUFAC_ID)
                         printf("Manufacturing ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_MANUFAC_ID, flashManufactureID);
-                    
+
                     if (flashDeviceID != EXPECTED_DEVICE_ID)
                         printf("Device ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_DEVICE_ID, flashDeviceID);
                 } while (1);
             }
             break;
         }
-        
+
         ++argv;
         --argc;
     }
-          
+
     CloseLibrary(IntuitionBase);
     CloseLibrary(ExpansionBase);
 }

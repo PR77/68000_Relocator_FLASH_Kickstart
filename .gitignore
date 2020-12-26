@@ -34,3 +34,5 @@ Logic/xlnx_auto_0_xdb/
 Logic/xst/
 Logic/iseconfig/
 Logic/_xmsgs/
+Logic/FLASH_KICKSTART.tim
+Logic/FLASH_KICKSTART.tspec

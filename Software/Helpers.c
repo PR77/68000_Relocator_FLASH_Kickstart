@@ -1,3 +1,21 @@
+/*
+    This file is part of FLASH_KICKSTART originally designed by
+    Paul Raspa.
+
+    FLASH_KICKSTART is free software: you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    FLASH_KICKSTART is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with FLASH_KICKSTART. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
@@ -44,18 +62,18 @@ static APTR memoryHandle;
 /*****************************************************************************/
 tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APTR * pMemoryBase)
 {
-    tReadFileHandler readFileHandler = readFileIdle;    
-    
+    tReadFileHandler readFileHandler = readFileIdle;
+
 #ifndef NDEBUG
     printf("ENTRY: readFileIntoMemoryHandler(char *fileName %s, ULONG bufferSize %d, APTR * pMemoryBase 0x%X)\n", fileName, bufferSize, pMemoryBase);
-#endif    
+#endif
 
     if (0L != fileName)
     {
         fileHandle = Open(fileName, MODE_OLDFILE);
 #ifndef NDEBUG
         printf("FLOW: readFileIntoMemoryHandler: Opening fileHandle 0x%X\n", fileHandle);
-#endif 
+#endif
         if (0L != fileHandle)
         {
             memoryHandle = AllocMem(bufferSize, 0);
@@ -65,21 +83,21 @@ tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APT
                 if (bufferSize == (ULONG)Read(fileHandle, memoryHandle, bufferSize))
                 {
                     *pMemoryBase = memoryHandle;
-    
+
                     readFileHandler = readFileOK;
                 }
                 else
                 {
                     FreeMem(memoryHandle, bufferSize);
                     Close(fileHandle);
-                    
+
                     readFileHandler = readFileGeneralError;
                 }
             }
             else
             {
                 Close(fileHandle);
-                
+
                 readFileHandler = readFileNoMemoryAllocated;
             }
         }
@@ -95,8 +113,8 @@ tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APT
 
 #ifndef NDEBUG
     printf("EXIT: readFileIntoMemoryHandler(readFileHandler 0x%X)\n", readFileHandler);
-#endif    
-    return (readFileHandler);    
+#endif
+    return (readFileHandler);
 }
 
 /*****************************************************************************/
@@ -108,11 +126,11 @@ tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APT
 tReadFileHandler freeFileHandler(ULONG bufferSize)
 {
     tReadFileHandler readFileHandler = readFileIdle;
-    
+
 #ifndef NDEBUG
     printf("ENTRY: freeFileHandler(void)\n");
-#endif    
-    
+#endif
+
     if (0L != fileHandle)
     {
 #ifndef NDEBUG
@@ -123,7 +141,7 @@ tReadFileHandler freeFileHandler(ULONG bufferSize)
         printf("FLOW: freeFileHandler: File Closed(fileHandle 0x%X)\n", fileHandle);
 #endif
     }
-   
+
     if (0L != memoryHandle)
     {
 #ifndef NDEBUG
@@ -138,7 +156,7 @@ tReadFileHandler freeFileHandler(ULONG bufferSize)
     readFileHandler = readFileOK;
 #ifndef NDEBUG
     printf("EXIT: freeFileHandler(readFileHandler 0x%X)\n", readFileHandler);
-#endif    
+#endif
     return (readFileHandler);
 }
 
@@ -162,7 +180,7 @@ tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
          fileHandle = Lock(fileName, MODE_OLDFILE);
 #ifndef NDEBUG
         printf("FLOW: getFileSize: Locking fileHandle 0x%X\n", fileHandle);
-#endif 
+#endif
 
         if (0L != fileHandle)
         {
@@ -184,15 +202,15 @@ tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
     {
         readFileHandler = readFileNoFileSpecified;
     }
-    
+
     if (readFileOK == readFileHandler)
         *pFileSize = (ULONG)FIB.fib_Size;
     else
         *pFileSize = 0;
-        
+
 #ifndef NDEBUG
     printf("EXIT: getFileSize(readFileHandler 0x%X)\n", readFileHandler);
-#endif    
+#endif
     return (readFileHandler);
 }
 
@@ -204,9 +222,9 @@ tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
 /*****************************************************************************/
 void hexDump (char *desc, void *addr, int len)
 {
-    
+
     // https://stackoverflow.com/questions/7775991/how-to-get-hexdump-of-a-structure-data
-    
+
     int i;
     unsigned char buff[17];
     unsigned char *pc = (unsigned char*)addr;
