@@ -21,6 +21,8 @@
 #ifndef __ROMINFO__
 #define __ROMINFO__
 
+#include <stdbool.h>
+
 enum romType {
     ROM_TYPE_UNKNOWN,
     ROM_TYPE_256,
@@ -29,14 +31,18 @@ enum romType {
 
 struct romInfo {
     ULONG id;
-    WORD major;
-    WORD minor;
+    UWORD major;
+    UWORD minor;
+    UWORD extra;
+    bool isDiagRom;
 };
 
 enum romErrCode {
-    ERR_NOT_ROM
+    ERR_NO_ERR,
+    ERR_NOT_ROM,
+    ERR_ROM_UNKNOWN
 };
 
-int getRomInfo(BYTE *address, struct romInfo *info);
+int getRomInfo(UBYTE *address, struct romInfo *info);
 int displayRomInfo(struct romInfo *info);
 #endif /* __ROMINFO */

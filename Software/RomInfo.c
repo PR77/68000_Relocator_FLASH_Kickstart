@@ -21,18 +21,60 @@
 #include <clib/intuition_protos.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 #include "RomInfo.h"
 
-int getRomInfo(BYTE *address, struct romInfo *info)
+static void getDiagRom(UBYTE *address, struct romInfo *info)
 {
-    BYTE data = *address;
+    UBYTE *ptr = address + 0xC8;
+    UBYTE data = *ptr;
+    char *endptr = NULL;
+    if (data != 0x56) // V
+    {
+        return;
+    }
+    ptr++;
+    info->major = strtoul((const char*)ptr, &endptr, 10);
+    if (!endptr)
+    {
+        return;
+    }
+    data = *endptr;
+    if (data != '.')
+    {
+        info->minor = 0;
+        return;
+    }
+    endptr++;
+    info->minor = strtoul(endptr, &endptr, 10);
+    if (!endptr)
+    {
+        return;
+    }
+    info->isDiagRom = true;
+    data = *endptr;
+    if (data != '.')
+    {
+        info->extra = 0;
+        return;
+    }
+    endptr++;
+    info->extra = strtoul(endptr, NULL, 10);
+}
+
+int getRomInfo(UBYTE *address, struct romInfo *info)
+{
+    UBYTE *ptr = address;
+    UBYTE data = *ptr;
+    info->isDiagRom = false;
     if (data != 0x11)
     {
         return ERR_NOT_ROM;
     }
-    address++;
-    data = *address;
+    ptr++;
+    data = *ptr;
     switch (data)
     {
         case 0x11:
@@ -43,11 +85,22 @@ int getRomInfo(BYTE *address, struct romInfo *info)
             break;
         default:
             info->id = ROM_TYPE_UNKNOWN;
-            return 1;
+            return ERR_ROM_UNKNOWN;
             break;
     }
-    memcpy(&info->major, address+11, 2);
-    memcpy(&info->minor, address+13, 2);
+    ptr++;
+    data = *ptr;
+    if (data != 0x4E)
+    {
+        return ERR_NOT_ROM;
+    }
+    memcpy(&info->major, address+12, 2);
+    memcpy(&info->minor, address+14, 2);
+    // We hit part of a memory ptr for DiagROM, it will be > 200
+    if (info->major > 100)
+    {
+        getDiagRom(address, info);
+    }
     return 0;
 }
 
@@ -55,43 +108,46 @@ int displayRomInfo(struct romInfo *info)
 {
     const char *kversion;
     const char *size;
-    switch(info->major)
+    if (!info->isDiagRom)
     {
-        case 30:
-            kversion = "Kickstart 1.0";
-            break;
-        case 31:
-            kversion = "Kickstart 1.1";
-            break;
-        case 33:
-            kversion = "Kickstart 1.2";
-            break;
-        case 36:
-            if (info->minor < 28)
-            {
-                kversion = "Kickstart 1.4";
-            } else {
-                kversion = "Kickstart 2.0";
-            }
-            break;
-        case 37:
-            kversion = "Kickstart 2.04";
-            break;
-        case 39:
-            kversion = "Kickstart 3.0";
-            break;
-        case 40:
-            kversion = "Kickstart 3.1";
-            break;
-        case 45:
-            kversion = "Kickstart 3.x";
-            break;
-        case 46:
-            kversion = "Kickstart 3.1.2";
-            break;
-        default:
-            kversion = "Unknown";
-            break;
+        switch(info->major)
+        {
+            case 30:
+                kversion = "Kickstart 1.0";
+                break;
+            case 31:
+                kversion = "Kickstart 1.1";
+                break;
+            case 33:
+                kversion = "Kickstart 1.2";
+                break;
+            case 36:
+                if (info->minor < 28)
+                {
+                    kversion = "Kickstart 1.4";
+                } else {
+                    kversion = "Kickstart 2.0";
+                }
+                break;
+            case 37:
+                kversion = "Kickstart 2.04";
+                break;
+            case 39:
+                kversion = "Kickstart 3.0";
+                break;
+            case 40:
+                kversion = "Kickstart 3.1";
+                break;
+            case 45:
+                kversion = "Kickstart 3.x";
+                break;
+            case 46:
+                kversion = "Kickstart 3.1.4";
+                break;
+            default:
+                kversion = "Unknown";
+                break;
+        }
     }
     switch (info->id)
     {
@@ -106,5 +162,12 @@ int displayRomInfo(struct romInfo *info)
             break;
     }
 
-    printf("%s (%hu.%hu) %s\n", kversion, info->major, info->minor, size);
+    if (info->isDiagRom)
+    {
+        printf("DiagRom V%hu.%hu.%hu %s\n", info->major, info->minor, info->extra, size);
+    }
+    else
+    {
+        printf("%s (%hu.%hu) %s\n", kversion, info->major, info->minor, size);
+    }
 }

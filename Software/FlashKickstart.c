@@ -102,6 +102,32 @@ static void eraseFlash(struct ConfigDev *myCD)
     }
 }
 
+static void getDeviceID(UBYTE manufacturer, UBYTE model)
+{
+    if (manufacturer == 0xBF)
+    {
+        switch (model)
+        {
+            case 0xB5:
+                printf("SST39SF010A (128KB)\n");
+                break;
+            case 0xB6:
+                printf("SST39SF020A (256KB)\n");
+                break;
+            case 0xB7:
+                printf("SST39SF040 (512KB)\n");
+                break;
+            default:
+                printf("Unknown SST\n");
+                break;
+        }
+    }
+    else
+    {
+        printf("Unknown\n");
+    }
+}
+
 tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * pBuffer)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
@@ -156,13 +182,12 @@ int main(int argc, char **argv)
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
     {
-        printf("FlashKickstart v2.0\n");
+        printf("FlashKickstart v2.1\n");
         printf("usage: FlashKickstart <option> <filename>\n");
         printf(" -i\tFLASH CHIP INFO\n");
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
         printf(" -p\tPROGRAM <filename>\n");
-        printf(" -t\tTEST <cyclically read FLASH CHIP INFO until interrupted>\n");
 
         exit(RETURN_FAIL);
     }
@@ -209,8 +234,8 @@ int main(int argc, char **argv)
     /* Opened correctly, so print out the configuration details */
     {
         printf("FLASH Kickstart Hardware identified with configuration:\n");
-        printf("cd_BoardAddr = 0x%06X\n", myCD->cd_BoardAddr);
-        printf("cd_BoardSize = 0x%06X (%ldK)\n", myCD->cd_BoardSize,((ULONG)myCD->cd_BoardSize)/1024);
+        printf("Board address: 0x%06X\n", myCD->cd_BoardAddr);
+        printf("Flash size: %ldK\n", ((ULONG)myCD->cd_BoardSize)/1024);
     }
 
     while ((argc > 1) && (argv[1][0] == '-'))
@@ -221,23 +246,20 @@ int main(int argc, char **argv)
             {
                 UWORD flashManufactureID, flashDeviceID;
 
-                if (flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
-                {
-                    printf("Manufacturing ID: High Device 0x%02X, Low Device 0x%02X\n", ((flashManufactureID & 0xFF00) >> 8), (flashManufactureID & 0xFF));
-                }
-                else
+                if (!(flashOK == readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID)))
                 {
                     printf("Failed to identify FLASH Manufacturer ID\n");
                 }
 
-                if (flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
-                {
-                    printf("Device ID: High Device 0x%02X, Low Device 0x%02X\n", ((flashDeviceID & 0xFF00) >> 8), (flashDeviceID & 0xFF));
-                }
-                else
+                if (!(flashOK == readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID)))
                 {
                     printf("Failed to identify FLASH Device ID\n");
                 }
+                printf("High flash chip: ");
+                getDeviceID(((flashManufactureID & 0xFF00) >> 8), ((flashDeviceID & 0xFF00) >> 8));
+                printf("Low flash chip: ");
+                getDeviceID((flashManufactureID & 0xFF), (flashDeviceID & 0xFF));
+
                 if (getRomInfo((BYTE*)0xF80000, &rInfo))
                 {
                     printf("Failed to get Kickstart ROM info\n");
@@ -321,7 +343,15 @@ int main(int argc, char **argv)
                             }
                             if (getRomInfo((BYTE*)pBuffer, &rInfo))
                             {
+                                char ch;
                                 printf("Failed to get File ROM info\n");
+                                printf("WARNING: This could mean the ROM is byte swapped which will not work\n");
+                                printf("Continue? ");
+                                scanf(" %c", &ch);
+                                if (ch != 'y' && ch != 'Y')
+                                {
+                                    return 1;
+                                }
                             }
                             else
                             {
@@ -370,27 +400,6 @@ int main(int argc, char **argv)
                 {
                     printf("No Kickstart image specified\n");
                 }
-            }
-            break;
-
-            case 't':
-            {
-                UWORD flashManufactureID, flashDeviceID;
-
-                do {
-
-                    if (flashOK != readManufactureID((ULONG)myCD->cd_BoardAddr, &flashManufactureID))
-                        break;
-
-                    if (flashOK != readDeviceID((ULONG)myCD->cd_BoardAddr, &flashDeviceID))
-                        break;
-
-                    if (flashManufactureID != EXPECTED_MANUFAC_ID)
-                        printf("Manufacturing ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_MANUFAC_ID, flashManufactureID);
-
-                    if (flashDeviceID != EXPECTED_DEVICE_ID)
-                        printf("Device ID Error, Expected 0x%04X, Got 0x%04X\n", EXPECTED_DEVICE_ID, flashDeviceID);
-                } while (1);
             }
             break;
         }
