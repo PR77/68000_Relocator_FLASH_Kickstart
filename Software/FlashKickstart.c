@@ -133,7 +133,6 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
     tFlashCommandStatus flashCommandStatus = flashIdle;
     ULONG currentWordIndex = 0;
     ULONG breakCount = 0;
-    ULONG errorCount = 0;
 
     do {
         writeFlashWord(baseAddress, currentWordIndex << 1, ((UWORD *)pBuffer)[currentWordIndex]);
@@ -148,23 +147,19 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
 
         if (((UWORD *)pBuffer)[currentWordIndex] != (((UWORD *)baseAddress)[currentWordIndex]))
         {
-            errorCount++;
             printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+            return flashProgramError;
         }
 
         if (breakCount == LOOP_TIMEOUT)
         {
             flashCommandStatus = flashProgramTimeout;
+            printf("Flash device timeout hit\n");
             break;
         }
 
         currentWordIndex += 1;
     } while (currentWordIndex < (fileSize >> 1));
-
-    if (errorCount)
-    {
-        flashCommandStatus = flashProgramRetry;
-    }
 
     return (flashCommandStatus);
 }
@@ -182,12 +177,12 @@ int main(int argc, char **argv)
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
     {
-        printf("FlashKickstart v2.1\n");
+        printf("FlashKickstart v3.0\n");
         printf("usage: FlashKickstart <option> <filename>\n");
         printf(" -i\tFLASH CHIP INFO\n");
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
-        printf(" -p\tPROGRAM <filename>\n");
+        printf(" -p\tPROGRAM <filename> <lo/hi>\n");
 
         exit(RETURN_FAIL);
     }
@@ -271,12 +266,24 @@ int main(int argc, char **argv)
                 }
                 if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
                 {
-                    printf("Failed to get Flash ROM info\n");
+                    printf("Failed to get Low Flash ROM info\n");
                 }
                 else
                 {
-                    printf("Flash ROM: ");
+                    printf("Low Flash ROM: ");
                     displayRomInfo(&rInfo);
+                }
+                if (myCD->cd_BoardSize > 512*1024)
+                {
+                    if (getRomInfo((BYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
+                    {
+                        printf("Failed to get High Flash ROM info\n");
+                    }
+                    else
+                    {
+                        printf("High Flash ROM: ");
+                        displayRomInfo(&rInfo);
+                    }
                 }
             }
             break;
@@ -310,7 +317,7 @@ int main(int argc, char **argv)
 
             case 'p':
             {
-                if ((argc > 2) && argv[2])
+                if ((argc > 3) && argv[2] && argv[3])
                 {
                     APTR pBuffer;
                     ULONG fileSize;
@@ -334,13 +341,26 @@ int main(int argc, char **argv)
                             }
                             if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
                             {
-                                printf("Failed to get Flash ROM info\n");
+                                printf("Failed to get Low Flash ROM info\n");
                             }
                             else
                             {
-                                printf("Flash ROM: ");
+                                printf("Low Flash ROM: ");
                                 displayRomInfo(&rInfo);
                             }
+                            if (myCD->cd_BoardSize > 512*1024)
+                            {
+                                if (getRomInfo((BYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
+                                {
+                                    printf("Failed to get High Flash ROM info\n");
+                                }
+                                else
+                                {
+                                    printf("High Flash ROM: ");
+                                    displayRomInfo(&rInfo);
+                                }
+                            }
+
                             if (getRomInfo((BYTE*)pBuffer, &rInfo))
                             {
                                 char ch;
@@ -358,18 +378,32 @@ int main(int argc, char **argv)
                                 printf("File ROM: ");
                                 displayRomInfo(&rInfo);
                             }
-                            eraseFlash(myCD);
                             tFlashCommandStatus programFlashStatus = flashIdle;
-                            ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr;
+                            ULONG baseAddress;
 
-                            do {
-                                programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
-
-                            } while (programFlashStatus == flashProgramRetry);
-
-                            if (programFlashStatus == flashProgramTimeout)
+                            if (strcasecmp(argv[3], "hi") == 0)
                             {
-                                printf("Failed to program kickstart image: Flash Program Timeout\n");
+                                baseAddress = (ULONG)myCD->cd_BoardAddr + (512*1024);
+                            }
+                            else if (strcasecmp(argv[3], "lo") == 0)
+                            {
+                                baseAddress = (ULONG)myCD->cd_BoardAddr;
+                            }
+                            else
+                            {
+                                printf("'hi' or 'lo' not specified\n");
+                                return 1;
+                            }
+
+                            programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
+
+                            if (programFlashStatus != flashOK)
+                            {
+                                printf("Failed to program kickstart image\n");
+                            }
+                            else
+                            {
+                                printf("FLASH device programmed OK\n");
                             }
 
                             freeFileHandler(fileSize);
@@ -398,7 +432,7 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    printf("No Kickstart image specified\n");
+                    printf("Kickstart image and lo / hi position required\n");
                 }
             }
             break;

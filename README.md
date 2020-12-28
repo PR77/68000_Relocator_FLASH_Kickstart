@@ -1,5 +1,9 @@
 # 68000 Relocator with FLASH based Kickstart
-Forked from https://github.com/PR77/68000_Relocator_FLASH_Kickstart and modified.
+Forked from https://github.com/PR77/68000_Relocator_FLASH_Kickstart and the software and firmware have been modified.
+
+It now supports two flashed kickstart ROMs and has a cleaner interface.
+
+**NOTE:** If you are using FK 3.0 you will need to use the 3.0 Xilinx firmware too. Otherwise hi/lo ROMs will be the mapped to the same address.
 
 # Warning
 This design has not been compliance tested and will not be. It may cause damage to your A500. I take no responsibility for this. I accept no responsibility for any damage to any equipment that results from the use of this design and its components. IT IS ENTIRELY AT YOUR OWN RISK!
@@ -55,7 +59,7 @@ Then when loading into RAM Kickstart version 3.1 the software will make a simple
 ![ROM Kickstart 3.1](/Images/Kickstart3.1.jpg)
 
 ### How It Works
-In principle the operation is fairly simple. A CPLD is used to switch between the ROM Kickstart on the Motherboard or the Flash Kickstart on the CPU Relocator. Switching is performed by an active /RESET (CTRL-A-A) without interruption for longer than 1 second. Shorter /RESET durations will simply just reset the Amiga. After a POR (Power On Reset) by default the Kickstart on the Motherboard will be used.
+In principle the operation is fairly simple. A CPLD is used to switch between the ROM Kickstart on the Motherboard or the two Flash Kickstart on the CPU Relocator. Switching is performed by an active /RESET (CTRL-A-A) without interruption for longer than 1 second. Shorter /RESET durations will simply just reset the Amiga. After a POR (Power On Reset) by default the Kickstart on the Motherboard will be used.
 
 #### ROM based Kickstart
 When ROM Kickstart is being used, the hardware simply passed /AS to the Amiga Motherboard to allow GARY perform the address decode and chip select of the internal ROM. During this process, the Flash Kickstart is simply not used - except when programming. A Zorro II space of 512K or 1MB (depending on jumper) is requested and allocated by the Amiga which maps to the Flash devices.
