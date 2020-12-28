@@ -22,14 +22,17 @@
     Revision 1.0 - 12.06.2019:
     Thanks to https://github.com/niklasekstrom for refactoring and addressing
     the Auto Config (R) glitch when used with a cascaded chain.
-    
+
     Revision 2.0 - 22.08.2020:
     Thanks to https://github.com/niklasekstrom for again refactoring and addressing
-    the issue identified by "The Q!". 
-	 
-	 Revision 2.1 - 26.12.2020:
-	 Switch power-on default to boot from motherboard ROM.
-    
+    the issue identified by "The Q!".
+
+    Revision 2.1 - 26.12.2020:
+    Switch power-on default to boot from motherboard ROM.
+
+    Revision 3.0 - 28.12.2029:
+    Hook up A19 and allow for a multi-rom switch if 1MB is installed
+
 */
 
  module FLASH_KICKSTART(
@@ -56,8 +59,6 @@
 		input SIZE_512K
 		);
 
-		assign FLASH_A19 = 1'b0;
-
 		reg useMotherboardKickstart = 1'b1;
 		reg [19:0] switchCounter = 20'd0;
 		reg hasSwitched = 1'b0;
@@ -69,6 +70,8 @@
 		reg overlay_n = 1'b0;
 
 		reg [3:0] dataOut = 4'h0;
+
+        reg useLowRom = 1'b0;
 
 		wire ciaRange               = ADDRESS_HIGH[23:16] == 8'hBF;
 		wire autoConfigRange        = ADDRESS_HIGH[23:16] == 8'hE8;
@@ -82,6 +85,8 @@
 
 		wire relocatorAccess            = relocatorKickstartAccess || autoConfigAccess || flashAccess;
 
+        assign FLASH_A19 = SIZE_512K ? 0 : (ADDRESS_HIGH[19] & !useLowRom);
+
 		always @(posedge E_CLK or posedge RESET_n)
 		begin
 			if (RESET_n)
@@ -92,11 +97,12 @@
 			else
 			begin
 				switchCounter <= switchCounter + 20'd1;
-				if (!hasSwitched && (&switchCounter))
+                if (!hasSwitched && (&switchCounter))
 				begin
-					hasSwitched <= 1'b1;
-					useMotherboardKickstart <= !useMotherboardKickstart;
-				end
+                    hasSwitched <= 1'b1;
+                    useMotherboardKickstart <= (!useLowRom || SIZE_512K) && !useMotherboardKickstart;
+                    useLowRom <= !useLowRom && useMotherboardKickstart && !SIZE_512K;
+                end
 			end
 		end
 
