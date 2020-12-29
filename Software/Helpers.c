@@ -70,7 +70,7 @@ tReadFileHandler readFileIntoMemoryHandler(char *fileName, ULONG bufferSize, APT
 
     if (0L != fileName)
     {
-        fileHandle = Open(fileName, MODE_OLDFILE);
+        fileHandle = Open((CONST_STRPTR)fileName, MODE_OLDFILE);
 #ifndef NDEBUG
         printf("FLOW: readFileIntoMemoryHandler: Opening fileHandle 0x%X\n", fileHandle);
 #endif
@@ -177,7 +177,7 @@ tReadFileHandler getFileSize(char *fileName, ULONG * pFileSize)
 
     if (0L != fileName)
     {
-         fileHandle = Lock(fileName, MODE_OLDFILE);
+         fileHandle = Lock((CONST_STRPTR)fileName, MODE_OLDFILE);
 #ifndef NDEBUG
         printf("FLOW: getFileSize: Locking fileHandle 0x%X\n", fileHandle);
 #endif
@@ -231,7 +231,7 @@ void hexDump (char *desc, void *addr, int len)
 
     // Output description if given.
     if (desc != NULL)
-        printf ("%s [0x%X]:\n", desc, addr);
+        printf ("%s [0x%X]:\n", desc, (unsigned)addr);
 
     if (len == 0) {
         printf("  ZERO LENGTH\n");

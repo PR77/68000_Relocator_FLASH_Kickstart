@@ -27,6 +27,7 @@ enum romType {
     ROM_TYPE_UNKNOWN,
     ROM_TYPE_256,
     ROM_TYPE_512,
+    ROM_TYPE_BLANK
 };
 
 struct romInfo {
@@ -44,5 +45,5 @@ enum romErrCode {
 };
 
 int getRomInfo(UBYTE *address, struct romInfo *info);
-int displayRomInfo(struct romInfo *info);
+void displayRomInfo(struct romInfo *info);
 #endif /* __ROMINFO */

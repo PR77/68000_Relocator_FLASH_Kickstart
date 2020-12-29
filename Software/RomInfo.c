@@ -64,13 +64,40 @@ static void getDiagRom(UBYTE *address, struct romInfo *info)
     info->extra = strtoul(endptr, NULL, 10);
 }
 
+// Erased roms are full of 0xff
+int checkRomBlank(UBYTE *address)
+{
+    for (UBYTE *ptr = address; ptr < address + (512*1024); ptr++)
+    {
+        if (*ptr != 0xff)
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int getRomInfo(UBYTE *address, struct romInfo *info)
 {
     UBYTE *ptr = address;
     UBYTE data = *ptr;
     info->isDiagRom = false;
+
+    if (data == 0xff)
+    {
+        if (checkRomBlank(address))
+        {
+            info->id = ROM_TYPE_BLANK;
+            return 0;
+        }
+        address+= 256*1024;
+        ptr = address;
+        data = *ptr;
+    }
     if (data != 0x11)
     {
+        info->id = ROM_TYPE_UNKNOWN;
+
         return ERR_NOT_ROM;
     }
     ptr++;
@@ -81,6 +108,7 @@ int getRomInfo(UBYTE *address, struct romInfo *info)
             info->id = ROM_TYPE_256;
             break;
         case 0x14:
+        case 0x16: // kick40063.A600
             info->id = ROM_TYPE_512;
             break;
         default:
@@ -90,7 +118,7 @@ int getRomInfo(UBYTE *address, struct romInfo *info)
     }
     ptr++;
     data = *ptr;
-    if (data != 0x4E)
+    if (data != 0x4E) // 256K byte swapped
     {
         return ERR_NOT_ROM;
     }
@@ -104,10 +132,16 @@ int getRomInfo(UBYTE *address, struct romInfo *info)
     return 0;
 }
 
-int displayRomInfo(struct romInfo *info)
+void displayRomInfo(struct romInfo *info)
 {
     const char *kversion;
     const char *size;
+
+    if (info->id == ROM_TYPE_BLANK)
+    {
+        printf("Erased\n");
+        return;
+    }
     if (!info->isDiagRom)
     {
         switch(info->major)
@@ -121,13 +155,14 @@ int displayRomInfo(struct romInfo *info)
             case 33:
                 kversion = "Kickstart 1.2";
                 break;
+            case 34:
+                kversion = "Kickstart 1.3";
+                break;
+            case 35:
+                kversion = "Kickstart 1.4";
+                break;
             case 36:
-                if (info->minor < 28)
-                {
-                    kversion = "Kickstart 1.4";
-                } else {
-                    kversion = "Kickstart 2.0";
-                }
+                kversion = "Kickstart 2.0";
                 break;
             case 37:
                 kversion = "Kickstart 2.04";

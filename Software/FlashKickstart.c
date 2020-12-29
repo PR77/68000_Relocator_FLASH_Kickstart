@@ -68,12 +68,15 @@ char eraseAlertMsg[] = "\x00\xC0\x14 ABOUT TO ERASE KICKSTART CHIPS \x00\x01" \
 int main(int argc, char **argv);
 tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * pBuffer);
 
+// Compiler complains if we don't do this, can't see why
+struct ConfigDev *FindConfigDev( CONST struct ConfigDev *oldConfigDev, LONG manufacturer, LONG product );
+
 /*****************************************************************************/
 /* Local Code ****************************************************************/
 /*****************************************************************************/
 static void eraseFlash(struct ConfigDev *myCD)
 {
-    if (!DisplayAlert(RECOVERY_ALERT, eraseAlertMsg, 52))
+    if (!DisplayAlert(RECOVERY_ALERT, (CONST_STRPTR)eraseAlertMsg, 52))
         return;
 
     if (flashOK == eraseCompleteFlash((ULONG)myCD->cd_BoardAddr))
@@ -147,7 +150,7 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
 
         if (((UWORD *)pBuffer)[currentWordIndex] != (((UWORD *)baseAddress)[currentWordIndex]))
         {
-            printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+            printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (unsigned)(currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
             return flashProgramError;
         }
 
@@ -171,24 +174,24 @@ int main(int argc, char **argv)
 {
     struct romInfo rInfo;
     struct ConfigDev *myCD = NULL;
-    struct FileInfoBlock myFIB;
-    BPTR fileHandle = 0L;
+    //struct FileInfoBlock myFIB;
+    //BPTR fileHandle = 0L;
 
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
     {
-        printf("FlashKickstart v3.0\n");
+        printf("FlashKickstart v3.1\n");
         printf("usage: FlashKickstart <option> <filename>\n");
         printf(" -i\tFLASH CHIP INFO\n");
         printf(" -e\tERASE\n");
         printf(" -d\tDUMP <start address [default F80000]> <length [default 64]>\n");
-        printf(" -p\tPROGRAM <filename> <lo/hi>\n");
+        printf(" -p\tPROGRAM <filename> <1/2>\n");
 
         exit(RETURN_FAIL);
     }
 
     /* Open any version intuition.library to support displayAlert */
-    IntuitionBase = OpenLibrary("intuition.library", 0);
+    IntuitionBase = OpenLibrary((CONST_STRPTR)"intuition.library", 0);
 
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == IntuitionBase)
@@ -198,7 +201,7 @@ int main(int argc, char **argv)
     }
 
     /* Open any version expansion.library to read in ConfigDevs */
-    ExpansionBase = OpenLibrary("expansion.library", 0L);
+    ExpansionBase = OpenLibrary((CONST_STRPTR)"expansion.library", 0L);
 
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == ExpansionBase)
@@ -215,7 +218,7 @@ int main(int argc, char **argv)
     /*----------------------------------------------------*/
 
     /* Check if correct Zorro II hardware is present. FLASH Kickstart */
-    myCD = FindConfigDev(0L, 1977, 104);
+    myCD = FindConfigDev(NULL, 1977L, 104L);
 
     /* Check if opened correctly, otherwise exit with message and error */
     if (NULL == myCD)
@@ -229,7 +232,7 @@ int main(int argc, char **argv)
     /* Opened correctly, so print out the configuration details */
     {
         printf("FLASH Kickstart Hardware identified with configuration:\n");
-        printf("Board address: 0x%06X\n", myCD->cd_BoardAddr);
+        printf("Board address: 0x%06X\n", (unsigned)myCD->cd_BoardAddr);
         printf("Flash size: %ldK\n", ((ULONG)myCD->cd_BoardSize)/1024);
     }
 
@@ -255,7 +258,7 @@ int main(int argc, char **argv)
                 printf("Low flash chip: ");
                 getDeviceID((flashManufactureID & 0xFF), (flashDeviceID & 0xFF));
 
-                if (getRomInfo((BYTE*)0xF80000, &rInfo))
+                if (getRomInfo((UBYTE*)0xF80000, &rInfo))
                 {
                     printf("Failed to get Kickstart ROM info\n");
                 }
@@ -264,24 +267,24 @@ int main(int argc, char **argv)
                     printf("Motherboard ROM: ");
                     displayRomInfo(&rInfo);
                 }
-                if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
+                if (getRomInfo((UBYTE*)myCD->cd_BoardAddr, &rInfo))
                 {
-                    printf("Failed to get Low Flash ROM info\n");
+                    printf("Failed to get Flash ROM 1 info\n");
                 }
                 else
                 {
-                    printf("Low Flash ROM: ");
+                    printf("Flash ROM 1: ");
                     displayRomInfo(&rInfo);
                 }
                 if (myCD->cd_BoardSize > 512*1024)
                 {
-                    if (getRomInfo((BYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
+                    if (getRomInfo((UBYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
                     {
-                        printf("Failed to get High Flash ROM info\n");
+                        printf("Failed to get Flash ROM 2 info\n");
                     }
                     else
                     {
-                        printf("High Flash ROM: ");
+                        printf("Flash ROM 2: ");
                         displayRomInfo(&rInfo);
                     }
                 }
@@ -330,7 +333,7 @@ int main(int argc, char **argv)
 
                         if (readFileOK == readFileProgram)
                         {
-                            if (getRomInfo((BYTE*)0xF80000, &rInfo))
+                            if (getRomInfo((UBYTE*)0xF80000, &rInfo))
                             {
                                 printf("Failed to get Kickstart ROM info\n");
                             }
@@ -339,29 +342,29 @@ int main(int argc, char **argv)
                                 printf("Motherboard ROM: ");
                                 displayRomInfo(&rInfo);
                             }
-                            if (getRomInfo((BYTE*)myCD->cd_BoardAddr, &rInfo))
+                            if (getRomInfo((UBYTE*)myCD->cd_BoardAddr, &rInfo))
                             {
-                                printf("Failed to get Low Flash ROM info\n");
+                                printf("Failed to get Flash ROM 1 info\n");
                             }
                             else
                             {
-                                printf("Low Flash ROM: ");
+                                printf("Flash ROM 1: ");
                                 displayRomInfo(&rInfo);
                             }
                             if (myCD->cd_BoardSize > 512*1024)
                             {
-                                if (getRomInfo((BYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
+                                if (getRomInfo((UBYTE*)(myCD->cd_BoardAddr + (512 * 1024)), &rInfo))
                                 {
-                                    printf("Failed to get High Flash ROM info\n");
+                                    printf("Failed to get Flash ROM 2 info\n");
                                 }
                                 else
                                 {
-                                    printf("High Flash ROM: ");
+                                    printf("Flash ROM 2: ");
                                     displayRomInfo(&rInfo);
                                 }
                             }
 
-                            if (getRomInfo((BYTE*)pBuffer, &rInfo))
+                            if (getRomInfo((UBYTE*)pBuffer, &rInfo))
                             {
                                 char ch;
                                 printf("Failed to get File ROM info\n");
@@ -379,19 +382,15 @@ int main(int argc, char **argv)
                                 displayRomInfo(&rInfo);
                             }
                             tFlashCommandStatus programFlashStatus = flashIdle;
-                            ULONG baseAddress;
+                            ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr;
 
-                            if (strcasecmp(argv[3], "hi") == 0)
+                            if (strcmp(argv[3], "2") == 0)
                             {
-                                baseAddress = (ULONG)myCD->cd_BoardAddr + (512*1024);
+                                baseAddress = baseAddress + (512*1024);
                             }
-                            else if (strcasecmp(argv[3], "lo") == 0)
+                            else if (strcmp(argv[3], "1"))
                             {
-                                baseAddress = (ULONG)myCD->cd_BoardAddr;
-                            }
-                            else
-                            {
-                                printf("'hi' or 'lo' not specified\n");
+                                printf("Flash ROM location '1' or '2' not specified\n");
                                 return 1;
                             }
 
@@ -418,7 +417,7 @@ int main(int argc, char **argv)
                         }
                         else if (readFileGeneralError == readFileProgram)
                         {
-                            printf("Failed to read into memory file: %s\n\n");
+                            printf("Failed to read into memory file: %s\n\n", argv[2]);
                         }
                         else
                         {
@@ -432,7 +431,7 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    printf("Kickstart image and lo / hi position required\n");
+                    printf("Kickstart image and position 1 or 2 required\n");
                 }
             }
             break;

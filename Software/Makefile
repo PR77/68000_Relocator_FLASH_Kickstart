@@ -1,5 +1,5 @@
 CC=m68k-amigaos-gcc
-CFLAGS=-mcrt=nix13 -DNDEBUG
+CFLAGS=-mcrt=nix13 -DNDEBUG -Wall -Werror
 
 all: FlashKickstart
 
