@@ -45,5 +45,5 @@ enum romErrCode {
 };
 
 int getRomInfo(UBYTE *address, struct romInfo *info);
-void displayRomInfo(struct romInfo *info);
+void displayRomInfo(struct romInfo *info, char **output);
 #endif /* __ROMINFO */

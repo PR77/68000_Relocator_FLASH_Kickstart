@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name 68000-Relocator-FLASH-Kickstart-rescue)(type Legacy)(uri "${KIPRJMOD}/68000 Relocator FLASH Kickstart-rescue.lib")(options "")(descr ""))
+  (lib (name m29f800)(type Legacy)(uri /home/linuxjedi/Programming/Source/m29f800.lib)(options "")(descr ""))
+)

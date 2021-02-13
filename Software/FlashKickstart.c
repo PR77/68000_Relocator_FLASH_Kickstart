@@ -265,7 +265,7 @@ int main(int argc, char **argv)
                 else
                 {
                     printf("Motherboard ROM: ");
-                    displayRomInfo(&rInfo);
+                    displayRomInfo(&rInfo, NULL);
                 }
                 if (getRomInfo((UBYTE*)myCD->cd_BoardAddr, &rInfo))
                 {
@@ -274,7 +274,7 @@ int main(int argc, char **argv)
                 else
                 {
                     printf("Flash ROM 1: ");
-                    displayRomInfo(&rInfo);
+                    displayRomInfo(&rInfo, NULL);
                 }
                 if (myCD->cd_BoardSize > 512*1024)
                 {
@@ -285,7 +285,7 @@ int main(int argc, char **argv)
                     else
                     {
                         printf("Flash ROM 2: ");
-                        displayRomInfo(&rInfo);
+                        displayRomInfo(&rInfo, NULL);
                     }
                 }
             }
@@ -340,7 +340,7 @@ int main(int argc, char **argv)
                             else
                             {
                                 printf("Motherboard ROM: ");
-                                displayRomInfo(&rInfo);
+                                displayRomInfo(&rInfo, NULL);
                             }
                             if (getRomInfo((UBYTE*)myCD->cd_BoardAddr, &rInfo))
                             {
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
                             else
                             {
                                 printf("Flash ROM 1: ");
-                                displayRomInfo(&rInfo);
+                                displayRomInfo(&rInfo, NULL);
                             }
                             if (myCD->cd_BoardSize > 512*1024)
                             {
@@ -360,7 +360,7 @@ int main(int argc, char **argv)
                                 else
                                 {
                                     printf("Flash ROM 2: ");
-                                    displayRomInfo(&rInfo);
+                                    displayRomInfo(&rInfo, NULL);
                                 }
                             }
 
@@ -379,7 +379,7 @@ int main(int argc, char **argv)
                             else
                             {
                                 printf("File ROM: ");
-                                displayRomInfo(&rInfo);
+                                displayRomInfo(&rInfo, NULL);
                             }
                             tFlashCommandStatus programFlashStatus = flashIdle;
                             ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr;

@@ -64,19 +64,6 @@ static void getDiagRom(UBYTE *address, struct romInfo *info)
     info->extra = strtoul(endptr, NULL, 10);
 }
 
-// Erased roms are full of 0xff
-int checkRomBlank(UBYTE *address)
-{
-    for (UBYTE *ptr = address; ptr < address + (512*1024); ptr++)
-    {
-        if (*ptr != 0xff)
-        {
-            return 0;
-        }
-    }
-    return 1;
-}
-
 int getRomInfo(UBYTE *address, struct romInfo *info)
 {
     UBYTE *ptr = address;
@@ -85,14 +72,15 @@ int getRomInfo(UBYTE *address, struct romInfo *info)
 
     if (data == 0xff)
     {
-        if (checkRomBlank(address))
+        address+= 256*1024;
+        ptr = address;
+        data = *ptr;
+        // We would only hit here with Flash ROMs
+        if (data == 0xff)
         {
             info->id = ROM_TYPE_BLANK;
             return 0;
         }
-        address+= 256*1024;
-        ptr = address;
-        data = *ptr;
     }
     if (data != 0x11)
     {
@@ -132,14 +120,22 @@ int getRomInfo(UBYTE *address, struct romInfo *info)
     return 0;
 }
 
-void displayRomInfo(struct romInfo *info)
+void displayRomInfo(struct romInfo *info, char **output)
 {
     const char *kversion;
     const char *size;
 
     if (info->id == ROM_TYPE_BLANK)
     {
-        printf("Erased\n");
+        if (output)
+        {
+            char *ret = strdup("Erased");
+            *output = ret;
+        }
+        else
+        {
+            printf("Erased\n");
+        }
         return;
     }
     if (!info->isDiagRom)
@@ -197,12 +193,28 @@ void displayRomInfo(struct romInfo *info)
             break;
     }
 
-    if (info->isDiagRom)
+    if (output)
     {
-        printf("DiagRom V%hu.%hu.%hu %s\n", info->major, info->minor, info->extra, size);
+        char *ret = malloc(64 * sizeof(char));
+        *output = ret;
+        if (info->isDiagRom)
+        {
+            snprintf(ret, 64, "DiagRom V%hu.%hu.%hu %s", info->major, info->minor, info->extra, size);
+        }
+        else
+        {
+            snprintf(ret, 64, "%s (%hu.%hu) %s", kversion, info->major, info->minor, size);
+        }
     }
     else
     {
-        printf("%s (%hu.%hu) %s\n", kversion, info->major, info->minor, size);
+        if (info->isDiagRom)
+        {
+            printf("DiagRom V%hu.%hu.%hu %s\n", info->major, info->minor, info->extra, size);
+        }
+        else
+        {
+            printf("%s (%hu.%hu) %s\n", kversion, info->major, info->minor, size);
+        }
     }
 }
