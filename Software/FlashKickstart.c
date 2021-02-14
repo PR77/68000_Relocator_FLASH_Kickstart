@@ -100,6 +100,10 @@ int main(int argc, char **argv)
     struct FileInfoBlock myFIB;
     BPTR fileHandle = 0L;
 
+    printf("\nFlashKickstart Tool For FLASH_KICKSTART");
+    printf("\nFor details refer to - https://github.com/PR77/68000_Relocator_FLASH_Kickstart\n");
+    printf("Developed By: Paul Raspa (PR77), Revision 1.0.1, 2021.02.14\n");
+
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
     {
