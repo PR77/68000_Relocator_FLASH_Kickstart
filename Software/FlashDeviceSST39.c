@@ -1,3 +1,21 @@
+/*
+    This file is part of FLASH_KICKSTART originally designed by
+    Paul Raspa.
+
+    FLASH_KICKSTART is free software: you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    FLASH_KICKSTART is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with FLASH_KICKSTART. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
@@ -34,18 +52,18 @@ tFlashCommandStatus checkFlashStatus(ULONG address)
     UWORD currentWord;
 
     flashCommandStatus = flashBusy;
-        
+
 #ifndef NDEBUG
     printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
 #endif
     previousWord = (*(UWORD *)address) & TOGGLE_STATUS;
     currentWord = (*(UWORD *)address) & TOGGLE_STATUS;
-    
+
     if (previousWord == currentWord)
     {
         flashCommandStatus = flashOK;
     }
-    
+
 #ifndef NDEBUG
     printf("EXIT: checkFlashStatus(flashCommandStatus 0x%X)\n", flashCommandStatus);
 #endif
@@ -65,7 +83,7 @@ tFlashCommandStatus unlockFlashDevice(ULONG address)
 #ifndef NDEBUG
     printf("ENTRY: unlockFlashDevice(ULONG address 0x%X)\n", address);
 #endif
-    
+
     *(UWORD *)(address + FLASH_UNLOCK_ADDR_1) = FLASH_UNLOCK_DATA_1;
 #ifndef NDEBUG
     printf("FLOW: FLASH_UNLOCK_ADDR_1 0x%X, FLASH_UNLOCK_DATA_1 0x%X\n", (address + FLASH_UNLOCK_ADDR_1), FLASH_UNLOCK_DATA_1);
@@ -76,11 +94,11 @@ tFlashCommandStatus unlockFlashDevice(ULONG address)
 #endif
 
     flashCommandStatus = flashOK;
-    
+
 #ifndef NDEBUG
     printf("EXIT: unlockFlashDevice(flashCommandStatus 0x%X)\n", flashCommandStatus);
 #endif
-    return (flashCommandStatus);    
+    return (flashCommandStatus);
 }
 
 /*****************************************************************************/
@@ -96,10 +114,10 @@ tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID)
 #ifndef NDEBUG
     printf("ENTRY: readManufactureID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pManufactureID);
 #endif
-    
+
     flashCommandStatus = unlockFlashDevice(address);
-    
-    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
+
+    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;
 #ifndef NDEBUG
     printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
 #endif
@@ -128,10 +146,10 @@ tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID)
 #ifndef NDEBUG
     printf("ENTRY: readDeviceID(ULONG address 0x%X, UWORD * pManufactureID 0x%X)\n", address, pDeviceID);
 #endif
-    
+
     flashCommandStatus = unlockFlashDevice(address);
-    
-    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;    
+
+    *(UWORD *)(address + FLASH_AUTOSEL_ADDR_1) = FLASH_AUTOSEL_DATA_1;
 #ifndef NDEBUG
     printf("FLOW: FLASH_AUTOSEL_ADDR_1 0x%X, FLASH_AUTOSEL_DATA_1 0x%X\n", (address + FLASH_AUTOSEL_ADDR_1), FLASH_AUTOSEL_DATA_1);
 #endif
@@ -140,7 +158,7 @@ tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID)
     printf("FLOW: FLASH_DEVICE_ID 0x%X, *pDeviceID 0x%X\n", (address + FLASH_DEVICE_ID), *pDeviceID);
 #endif
     flashCommandStatus = resetFlashDevice(address);
-    
+
 #ifndef NDEBUG
     printf("EXIT: readDeviceID(flashCommandStatus 0x%X)\n", flashCommandStatus);
 #endif
@@ -160,8 +178,8 @@ tFlashCommandStatus resetFlashDevice(ULONG address)
 #ifndef NDEBUG
     printf("ENTRY: resetFlashDevice(ULONG address 0x%X)\n", address);
 #endif
-    
-    *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;    
+
+    *(UWORD *)(address + FLASH_RESET_ADDR_1) = FLASH_RESET_DATA_1;
 
     flashCommandStatus = flashOK;
 
@@ -177,7 +195,7 @@ tFlashCommandStatus resetFlashDevice(ULONG address)
 /* Parameters:  ULONG address, UBYTE sectorNumber                            */
 /* Description: Erases a specific sector number from flash device            */
 /*****************************************************************************/
-tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
+tFlashCommandStatus eraseFlashSector(ULONG address, ULONG sectorNumber)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
 
@@ -187,20 +205,19 @@ tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
 
     if (sectorNumber < MAX_SECTORS)
     {
-        if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
+        if (flashOK == unlockFlashDevice(address))
         {
-            *(UWORD *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;    
+            *(UWORD *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;
 #ifndef NDEBUG
             printf("FLOW: FLASH_ERASE_ADDR_1 0x%X, FLASH_ERASE_DATA_1 0x%X\n", (address + FLASH_ERASE_ADDR_1), FLASH_ERASE_DATA_1);
 #endif
-            
-            if (flashOK == unlockFlashDevice(address + (SECTOR_SIZE * sectorNumber)))
+            if (flashOK == unlockFlashDevice(address))
             {
-                *(UWORD *)(address + (sectorNumber << 16)) = FLASH_SECTOR_DATA_1;
+                *(UWORD *)(address + (sectorNumber << 13)) = FLASH_SECTOR_DATA_1;
 #ifndef NDEBUG
-                printf("FLOW: Sector Address 0x%X, FLASH_SECTOR_DATA_1 0x%X\n", address + (sectorNumber << 16), FLASH_SECTOR_DATA_1);
+                printf("FLOW: Sector Address 0x%X, FLASH_SECTOR_DATA_1 0x%X\n", address + (sectorNumber << 13), FLASH_SECTOR_DATA_1);
 #endif
-                flashCommandStatus = flashOK;                
+                flashCommandStatus = flashOK;
             }
         }
     }
@@ -208,7 +225,7 @@ tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber)
     {
         flashCommandStatus = flashEraseError;
     }
-    
+
 #ifndef NDEBUG
     printf("EXIT: eraseFlashSector(flashCommandStatus 0x%X)\n", flashCommandStatus);
 #endif
@@ -231,29 +248,29 @@ tFlashCommandStatus eraseCompleteFlash(ULONG address)
 
     if (flashOK == unlockFlashDevice(address))
     {
-        *(UWORD *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;    
+        *(UWORD *)(address + FLASH_ERASE_ADDR_1) = FLASH_ERASE_DATA_1;
 #ifndef NDEBUG
         printf("FLOW: FLASH_ERASE_ADDR_1 0x%X, FLASH_ERASE_DATA_1 0x%X\n", (address + FLASH_ERASE_ADDR_1), FLASH_ERASE_DATA_1);
 #endif
-        
+
         if (flashOK == unlockFlashDevice(address))
         {
             *(UWORD *)(address + FLASH_ERASE_ADDR_1) = FLASH_COMPLETE_DATA_1;
 #ifndef NDEBUG
             printf("FLOW: Complete Flash 0x%X, FLASH_COMPLETE_DATA_1 0x%X\n", (address + FLASH_ERASE_ADDR_1), FLASH_COMPLETE_DATA_1);
 #endif
-            flashCommandStatus = flashOK;                
+            flashCommandStatus = flashOK;
         }
         else
         {
-            flashCommandStatus = flashEraseError;    
+            flashCommandStatus = flashEraseError;
         }
     }
     else
     {
         flashCommandStatus = flashEraseError;
     }
-    
+
 #ifndef NDEBUG
     printf("EXIT: eraseCompleteFlash(flashCommandStatus 0x%X)\n", flashCommandStatus);
 #endif
@@ -271,9 +288,9 @@ tFlashCommandStatus writeFlashWord(ULONG baseAddress, ULONG writeAddress, UWORD 
     tFlashCommandStatus flashCommandStatus = flashIdle;
 
     flashCommandStatus = unlockFlashDevice(baseAddress);
-    
-    *(UWORD *)(baseAddress + FLASH_PROGRAM_ADDR_1) = FLASH_PROGRAM_DATA_1;    
+
+    *(UWORD *)(baseAddress + FLASH_PROGRAM_ADDR_1) = FLASH_PROGRAM_DATA_1;
     *(UWORD *)(baseAddress + writeAddress) = data;
-    
+
     return (flashCommandStatus);
 }
