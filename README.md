@@ -74,6 +74,8 @@ When programming the Flash devices, access is via this Zorro II space. Programmi
 #### FLASH based Kickstart
 When Flash Kickstart is being used, the hardware simply blocks /AS to the Amiga Motherboard and the CPLD will perform the operation of Flash device control. As /AS is not asserted on the Amiga Motherboard, and therefore no GARY decode, the Relocator CPLD will then also assert the /DTACK after placing data on the bus - this is needed to complete the CPU cycle.
 
+Flash Kickstarts will always be visible from base address 0xF80000. This means, if 256K images would be used, then it will need to be duplicated to populate the entire 512K region size. This is to ensure the correct SP and IP initisation (see Overlay Interception). 256K images generally start from address 0xFC0000 (as opposed to 0xF80000).
+
 #### Overlay Interception
 When Flash Kickstart mode is being used, the CPLD will also intercept the overlay of the Kickstart in the 0x000000 memory space until the first access to the custom chip register is performed. This ensures the correct SP and IP initialisation is performed directly after POR (Power On Reset) as the Flash Kickstart is used by default.
 
