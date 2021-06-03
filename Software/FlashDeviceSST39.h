@@ -1,3 +1,21 @@
+/*
+    This file is part of FLASH_KICKSTART originally designed by
+    Paul Raspa.
+
+    FLASH_KICKSTART is free software: you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    FLASH_KICKSTART is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with FLASH_KICKSTART. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #ifndef __FLASH_DEVICE_SST39__
 #define __FLASH_DEVICE_SST39__
 
@@ -9,8 +27,8 @@
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
-#define SECTOR_SIZE		        0x10000
-#define MAX_SECTORS             8
+#define SECTOR_SIZE		        0x1000 // 4KB
+#define MAX_SECTORS             128    // 128 sectors for 040 flash
 
 #define TOGGLE_STATUS           0x4040
 
@@ -44,7 +62,7 @@
 /*****************************************************************************/
 
 typedef enum {
-    
+
     flashIdle = 0,
     flashBusy,
     flashStatusError,
@@ -53,7 +71,7 @@ typedef enum {
     flashProgramRetry,
     flashProgramTimeout,
     flashOK
-    
+
 } tFlashCommandStatus;
 
 /*****************************************************************************/
@@ -65,7 +83,7 @@ extern tFlashCommandStatus unlockFlashDevice(ULONG address);
 extern tFlashCommandStatus readManufactureID(ULONG address, UWORD * pManufactureID);
 extern tFlashCommandStatus readDeviceID(ULONG address, UWORD * pDeviceID);
 extern tFlashCommandStatus resetFlashDevice(ULONG address);
-extern tFlashCommandStatus eraseFlashSector(ULONG address, UBYTE sectorNumber);
+extern tFlashCommandStatus eraseFlashSector(ULONG address, ULONG sectorNumber);
 extern tFlashCommandStatus eraseCompleteFlash(ULONG address);
 extern tFlashCommandStatus writeFlashWord(ULONG baseAddress, ULONG writeAddress, UWORD data);
 
