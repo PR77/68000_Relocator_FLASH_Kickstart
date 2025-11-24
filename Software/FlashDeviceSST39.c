@@ -2,6 +2,7 @@
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
 #include <clib/expansion_protos.h>
+#include <proto/dos.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,21 +31,34 @@
 tFlashCommandStatus checkFlashStatus(ULONG address)
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
-    UWORD previousWord;
-    UWORD currentWord;
+    volatile UWORD previousWord;
+    volatile UWORD currentWord;
 
-    flashCommandStatus = flashBusy;
-        
 #ifndef NDEBUG
     printf("ENTRY: checkFlashStatus(ULONG address 0x%X)\n", address);
 #endif
-    previousWord = (*(UWORD *)address) & TOGGLE_STATUS;
-    currentWord = (*(UWORD *)address) & TOGGLE_STATUS;
-    
-    if (previousWord == currentWord)
-    {
-        flashCommandStatus = flashOK;
-    }
+    do {
+		previousWord = *(volatile UWORD *)address;
+		currentWord = *(volatile UWORD *)address;
+		
+		if (((currentWord ^ previousWord) & TOGGLE_STATUS) == 0)
+		{
+			flashCommandStatus = flashOK;
+			break;
+		}
+		
+		if (currentWord & TIMEOUT_STATUS)
+		{
+			previousWord = *(volatile UWORD *)address;
+			currentWord = *(volatile UWORD *)address;
+			
+			if ((currentWord ^ previousWord) & TOGGLE_STATUS)
+			{
+				flashCommandStatus = flashTimeout;
+				break;
+			}
+		}
+	} while (1);
     
 #ifndef NDEBUG
     printf("EXIT: checkFlashStatus(flashCommandStatus 0x%X)\n", flashCommandStatus);

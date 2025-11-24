@@ -2,6 +2,7 @@
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
 #include <clib/expansion_protos.h>
+#include <proto/dos.h>
 
 #include <stdio.h>
 #include <stdlib.h>

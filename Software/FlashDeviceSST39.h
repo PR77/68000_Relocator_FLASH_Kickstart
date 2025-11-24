@@ -1,6 +1,12 @@
 #ifndef __FLASH_DEVICE_SST39__
 #define __FLASH_DEVICE_SST39__
 
+#include <clib/dos_protos.h>
+#include <clib/exec_protos.h>
+#include <clib/intuition_protos.h>
+#include <clib/expansion_protos.h>
+#include <proto/dos.h>
+
 /*****************************************************************************/
 /* Macros ********************************************************************/
 /*****************************************************************************/
@@ -13,6 +19,7 @@
 #define MAX_SECTORS             8
 
 #define TOGGLE_STATUS           0x4040
+#define TIMEOUT_STATUS			0x2020
 
 #define FLASH_RESET_ADDR_1      (0x0000 << 1)
 #define FLASH_RESET_DATA_1      (0xF0F0)
@@ -47,6 +54,7 @@ typedef enum {
     
     flashIdle = 0,
     flashBusy,
+	flashTimeout,
     flashStatusError,
     flashEraseError,
     flashProgramError,

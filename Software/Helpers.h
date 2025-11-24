@@ -1,6 +1,12 @@
 #ifndef __HELPERS__
 #define __HELPERS__
 
+#include <clib/dos_protos.h>
+#include <clib/exec_protos.h>
+#include <clib/intuition_protos.h>
+#include <clib/expansion_protos.h>
+#include <proto/dos.h>
+
 /*****************************************************************************/
 /* Macros ********************************************************************/
 /*****************************************************************************/

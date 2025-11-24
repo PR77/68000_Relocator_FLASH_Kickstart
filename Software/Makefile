@@ -1,5 +1,5 @@
 CC=vc +kick13
-CFLAGS=-I$(NDK_INC) -DNDEBUG
+CFLAGS=-I$(NDK_INC) -c99 -DNDEBUG -lamiga -lauto
 
 all: FlashKickstart
 
