@@ -20,6 +20,7 @@
 /* Defines *******************************************************************/
 /*****************************************************************************/
 
+#define ERROR_COUNT_MAX		(ULONG)10
 #define LOOP_TIMEOUT        (ULONG)10000
 #define KICKSTART_256K      (ULONG)(256 * 1024)
 
@@ -54,25 +55,38 @@ tFlashCommandStatus programFlashLoop(ULONG fileSize, ULONG baseAddress, APTR * p
 {
     tFlashCommandStatus flashCommandStatus = flashIdle;
     ULONG currentWordIndex = 0;
+	ULONG errorCount = 0;
     
     do {
-        writeFlashWord(baseAddress, currentWordIndex << 1, ((UWORD *)pBuffer)[currentWordIndex]);
+        flashCommandStatus = writeFlashWord(baseAddress, currentWordIndex << 1, ((UWORD *)pBuffer)[currentWordIndex]);
 
-		/* Changed checkFlashStatus to blocking to avoid multiple loops */
-		flashCommandStatus = checkFlashStatus(baseAddress + (currentWordIndex << 1));
-		
 		if (flashCommandStatus == flashTimeout)
         {
-            printf("Timeout at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+            printf("Timeout at ADDR: 0x%06X, ERROR: 0x%04X\n", (currentWordIndex << 1), errorCount);
+			errorCount++;
         }
         
+		if (flashCommandStatus == flashIdle)
+        {
+            printf("Idle at ADDR: 0x%06X, ERROR: 0x%04X\n", (currentWordIndex << 1), errorCount);
+			errorCount++;
+        }
+		
         if (((UWORD *)pBuffer)[currentWordIndex] != (((volatile UWORD *)baseAddress)[currentWordIndex]))
         {
-            printf("Failed at ADDR: 0x%06X, SRC: 0x%04X, DEST 0x%04X\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+            flashCommandStatus = flashProgramError;
+			printf("Fail at ADDR: 0x%06X, SRC: 0x%04X, DEST: 0x%04X, Retrying\n", (currentWordIndex << 1), ((UWORD *)pBuffer)[currentWordIndex], ((UWORD *)baseAddress)[currentWordIndex]);
+			errorCount++;
         }
-                                                                                      
-        currentWordIndex += 1;
-    } while (currentWordIndex < (fileSize >> 1));
+		
+		if (flashCommandStatus == flashOK)
+        {
+			/* Increment to the next word only if previous was successfully writtenn */
+			currentWordIndex += 1;
+			errorCount = 0;
+		}
+		
+    } while ((currentWordIndex < (fileSize >> 1)) && (errorCount < ERROR_COUNT_MAX));
     
 
     return (flashCommandStatus);
@@ -89,7 +103,7 @@ int main(int argc, char **argv)
 
     printf("\nFlashKickstart Tool For FLASH_KICKSTART");
     printf("\nFor details refer to - https://github.com/PR77/68000_Relocator_FLASH_Kickstart\n");
-    printf("Developed By: Paul Raspa (PR77), Revision 1.0.2, 2025.11.24\n");
+    printf("Developed By: Paul Raspa (PR77), Revision 1.0.3, 2025.11.25\n");
 
     /* Check if application has been started with correct parameters */
     if (argc <= 1)
@@ -248,11 +262,6 @@ int main(int argc, char **argv)
                             ULONG baseAddress = (fileSize == KICKSTART_256K) ? ((ULONG)myCD->cd_BoardAddr + KICKSTART_256K) : (ULONG)myCD->cd_BoardAddr;
                             
 							programFlashStatus = programFlashLoop(fileSize, baseAddress, pBuffer);
-                            if (programFlashStatus == flashProgramTimeout)
-                            {
-                                printf("Failed to program kickstart image: Flash Program Timeout\n");
-                            }
-
                             freeFileHandler(fileSize);                            
                         }
                         else if (readFileNotFound == readFileProgram)
