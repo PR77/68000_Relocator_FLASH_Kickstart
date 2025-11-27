@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<generated_project xmlns="http://www.xilinx.com/XMLSchema" xmlns:xil_pn="http://www.xilinx.com/XMLSchema">
+
+  <!--                                                          -->
+
+  <!--             For tool use only. Do not edit.              -->
+
+  <!--                                                          -->
+
+  <!-- ProjectNavigator created generated project file.         -->
+
+  <!-- For use in tracking generated file and other information -->
+
+  <!-- allowing preservation of process status.                 -->
+
+  <!--                                                          -->
+
+  <!-- Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved. -->
+
+  <version xmlns="http://www.xilinx.com/XMLSchema">11.1</version>
+
+  <sourceproject xmlns="http://www.xilinx.com/XMLSchema" xil_pn:fileType="FILE_XISE" xil_pn:name="FLASH_KICKSTART.xise"/>
+
+  <files xmlns="http://www.xilinx.com/XMLSchema">
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGDBUILD_LOG" xil_pn:name="FLASH_KICKSTART.bld"/>
+    <file xil_pn:fileType="FILE_CMD_LOG" xil_pn:name="FLASH_KICKSTART.cmd_log"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_GYD" xil_pn:name="FLASH_KICKSTART.gyd"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_JEDEC" xil_pn:name="FLASH_KICKSTART.jed"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_LSO" xil_pn:name="FLASH_KICKSTART.lso"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_MFD" xil_pn:name="FLASH_KICKSTART.mfd"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGA" xil_pn:name="FLASH_KICKSTART.nga"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGC" xil_pn:name="FLASH_KICKSTART.ngc"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGD" xil_pn:name="FLASH_KICKSTART.ngd"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGR" xil_pn:name="FLASH_KICKSTART.ngr"/>
+    <file xil_pn:fileType="FILE_PAD_MISC" xil_pn:name="FLASH_KICKSTART.pad"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_PNX" xil_pn:name="FLASH_KICKSTART.pnx"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="FLASH_KICKSTART.prj"/>
+    <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="FLASH_KICKSTART.rpt"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_XST_STX" xil_pn:name="FLASH_KICKSTART.stx"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_XST_REPORT" xil_pn:name="FLASH_KICKSTART.syr"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_VM6" xil_pn:name="FLASH_KICKSTART.vm6"/>
+    <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="FLASH_KICKSTART.xml"/>
+    <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_XST" xil_pn:name="FLASH_KICKSTART.xst"/>
+    <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="FLASH_KICKSTART_build.xml"/>
+    <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="FLASH_KICKSTART_html"/>
+    <file xil_pn:fileType="FILE_XRPT" xil_pn:name="FLASH_KICKSTART_ngdbuild.xrpt"/>
+    <file xil_pn:fileType="FILE_PAD_EXCEL_REPORT" xil_pn:name="FLASH_KICKSTART_pad.csv"/>
+    <file xil_pn:fileType="FILE_HTML" xil_pn:name="FLASH_KICKSTART_summary.html"/>
+    <file xil_pn:fileType="FILE_XRPT" xil_pn:name="FLASH_KICKSTART_xst.xrpt"/>
+    <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="_ngo"/>
+    <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
+    <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/xst.xmsgs"/>
+    <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="webtalk_pn.xml"/>
+    <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="xlnx_auto_0_xdb"/>
+    <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="xst"/>
+  </files>
+
+  <transforms xmlns="http://www.xilinx.com/XMLSchema">
+    <transform xil_pn:end_ts="1764268407" xil_pn:in_ck="-7487946079766578143" xil_pn:name="TRANEXT_xstsynthesize_xc9500xl" xil_pn:prop_ck="-3138338281702445387" xil_pn:start_ts="1764268400">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="WarningsGenerated"/>
+      <status xil_pn:value="ReadyToRun"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.lso"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.ngc"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.ngr"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.prj"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.stx"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.syr"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.xst"/>
+      <outfile xil_pn:name="FLASH_KICKSTART_xst.xrpt"/>
+      <outfile xil_pn:name="_xmsgs/xst.xmsgs"/>
+      <outfile xil_pn:name="webtalk_pn.xml"/>
+      <outfile xil_pn:name="xst"/>
+    </transform>
+    <transform xil_pn:end_ts="1764268407" xil_pn:in_ck="-912400286181781175" xil_pn:name="TRAN_compileBCD2" xil_pn:prop_ck="-7858086535202720321" xil_pn:start_ts="1764268407">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="ReadyToRun"/>
+    </transform>
+    <transform xil_pn:end_ts="1764268412" xil_pn:in_ck="7552783804187807852" xil_pn:name="TRAN_ngdbuild" xil_pn:prop_ck="-2808641355923232019" xil_pn:start_ts="1764268407">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="ReadyToRun"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.bld"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.ngd"/>
+      <outfile xil_pn:name="FLASH_KICKSTART_ngdbuild.xrpt"/>
+      <outfile xil_pn:name="_ngo"/>
+      <outfile xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
+    </transform>
+    <transform xil_pn:end_ts="1764268430" xil_pn:in_ck="-912400286181788668" xil_pn:name="TRANEXT_vm6File_xc9500xl" xil_pn:prop_ck="3949696999497540582" xil_pn:start_ts="1764268412">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="ReadyToRun"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.gyd"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.mfd"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.nga"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.pad"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.pnx"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.rpt"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.vm6"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.xml"/>
+      <outfile xil_pn:name="FLASH_KICKSTART_build.xml"/>
+      <outfile xil_pn:name="FLASH_KICKSTART_html"/>
+      <outfile xil_pn:name="FLASH_KICKSTART_pad.csv"/>
+    </transform>
+    <transform xil_pn:end_ts="1764268432" xil_pn:in_ck="-912400286181779804" xil_pn:name="TRANEXT_crtProg_xc9500" xil_pn:prop_ck="-6294026017969277533" xil_pn:start_ts="1764268430">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="ReadyToRun"/>
+      <outfile xil_pn:name="FLASH_KICKSTART.jed"/>
+    </transform>
+    <transform xil_pn:end_ts="1764268430" xil_pn:in_ck="-912400286181779804" xil_pn:name="TRAN_timRpt" xil_pn:prop_ck="111903974446" xil_pn:start_ts="1764268428">
+      <status xil_pn:value="SuccessfullyRun"/>
+      <status xil_pn:value="WarningsGenerated"/>
+      <status xil_pn:value="ReadyToRun"/>
+    </transform>
+  </transforms>
+
+</generated_project>
